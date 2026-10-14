@@ -1,6 +1,6 @@
 const BASE=new URL('./',self.location).pathname;
-const CACHE='show-player-offline-v114';
-const FILES=['./releases/v114/index.html','./','./index.html','./app.html','./player.css?v=114','./player.mjs?v=114','./audio-mode.mjs?v=114','./buffer-engine.mjs?v=114','./transport.mjs?v=114','./storage.mjs?v=114','./repository.mjs?v=114','./transfer.mjs?v=114','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png','./receiver-silence.wav','./demo-a.wav','./demo-b.wav'];
+const CACHE='show-player-offline-v115';
+const FILES=['./releases/v115/index.html','./','./index.html','./app.html','./player.css?v=115','./player.mjs?v=115','./audio-mode.mjs?v=115','./buffer-engine.mjs?v=115','./transport.mjs?v=115','./storage.mjs?v=115','./repository.mjs?v=115','./transfer.mjs?v=115','./manifest.webmanifest','./manual.html','./manual.css?v=115','./manual/status.png','./manual/player.png','./manual/card1.png','./manual/card2.png','./manual/setlist.png','./manual/list.png','./manual/import.png','./manual/order.png','./manual/save.png','./icon.svg','./icon-192.png','./icon-512.png','./receiver-silence.wav','./demo-a.wav','./demo-b.wav'];
 // Safari rejects redirected cached responses for navigation. Reconstruct every
 // response served by this worker, including caches created by older versions.
 function cleanResponse(response){if(!response||response.status===0)throw Error('Unreadable response');const headers=new Headers(response.headers);headers.delete('Content-Encoding');headers.delete('Content-Length');return new Response(response.clone().body,{status:response.status,statusText:response.statusText,headers});}
