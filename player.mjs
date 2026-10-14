@@ -1,8 +1,8 @@
-import {chooseAudioMode} from './audio-mode.mjs?v=113';
-import {BufferedTrack} from './buffer-engine.mjs?v=113';
-import {Transport} from './transport.mjs?v=113';
-import {loadLibrary,readStore,writeLibrary} from './repository.mjs?v=113';
-import {cleanEntry,validateList,digest} from './transfer.mjs?v=113';
+import {chooseAudioMode} from './audio-mode.mjs?v=114';
+import {BufferedTrack} from './buffer-engine.mjs?v=114';
+import {Transport} from './transport.mjs?v=114';
+import {loadLibrary,readStore,writeLibrary} from './repository.mjs?v=114';
+import {cleanEntry,validateList,digest} from './transfer.mjs?v=114';
 const audioMode=chooseAudioMode({search:window.location?.search,userAgent:navigator.userAgent,platform:navigator.platform,maxTouchPoints:navigator.maxTouchPoints});
 const useBufferedAudio=audioMode.engine==='buffer';
 const $=id=>document.getElementById(id),audio=$('audio'),receiver=$('receiver');
@@ -193,7 +193,7 @@ async function restore(){try{const restored=await loadLibrary();db=restored.db;l
 
 async function offlineSetup(){
  if(!('serviceWorker'in navigator)){report('オフライン保存が使えません。Safariで開いてください。',true);return;}
- const check=()=>{const worker=navigator.serviceWorker.controller;if(!worker)return;const channel=new MessageChannel();channel.port1.onmessage=e=>{swReady=e.data.ready&&e.data.version==='show-player-offline-v113';offlineBanner();channel.port1.close();};worker.postMessage('OFFLINE_STATUS',[channel.port2]);};
+ const check=()=>{const worker=navigator.serviceWorker.controller;if(!worker)return;const channel=new MessageChannel();channel.port1.onmessage=e=>{swReady=e.data.ready&&e.data.version==='show-player-offline-v114';offlineBanner();channel.port1.close();};worker.postMessage('OFFLINE_STATUS',[channel.port2]);};
  navigator.serviceWorker.addEventListener('controllerchange',check);check();
  try{await navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'});await navigator.serviceWorker.ready;check();}
  catch(e){if(navigator.serviceWorker.controller){check();log('オフライン','既存の保存画面を使用');}else{report('画面のオフライン保存に失敗しました。ネット接続時に開き直してください。',true);log('オフライン',e.message);}}

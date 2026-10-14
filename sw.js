@@ -1,6 +1,6 @@
 const BASE=new URL('./',self.location).pathname;
-const CACHE='show-player-offline-v113';
-const FILES=['./releases/v113/index.html','./','./index.html','./app.html','./player.css?v=113','./player.mjs?v=113','./audio-mode.mjs?v=113','./buffer-engine.mjs?v=113','./transport.mjs?v=113','./storage.mjs?v=113','./repository.mjs?v=113','./transfer.mjs?v=113','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png','./receiver-silence.wav','./demo-a.wav','./demo-b.wav'];
+const CACHE='show-player-offline-v114';
+const FILES=['./releases/v114/index.html','./','./index.html','./app.html','./player.css?v=114','./player.mjs?v=114','./audio-mode.mjs?v=114','./buffer-engine.mjs?v=114','./transport.mjs?v=114','./storage.mjs?v=114','./repository.mjs?v=114','./transfer.mjs?v=114','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png','./receiver-silence.wav','./demo-a.wav','./demo-b.wav'];
 // Safari rejects redirected cached responses for navigation. Reconstruct every
 // response served by this worker, including caches created by older versions.
 function cleanResponse(response){if(!response||response.status===0)throw Error('Unreadable response');const headers=new Headers(response.headers);headers.delete('Content-Encoding');headers.delete('Content-Length');return new Response(response.clone().body,{status:response.status,statusText:response.statusText,headers});}
@@ -17,7 +17,7 @@ self.addEventListener('fetch',e=>{
    // A cache can be evicted independently of an active worker. Returning
    // undefined here caused a possible navigation failure instead of recovery.
    try{const online=await fetch(e.request);if(online.ok&&cache){try{await cache.put(rel==='app.html'?'./app.html':'./index.html',online.clone());}catch{}}return cleanResponse(online);}
-   catch{return new Response('<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SHOW PLAYER</title><body style="background:#101114;color:#eee;font-family:sans-serif;padding:32px"><h1>画面の保存を読み込めません</h1><p>ネット接続をオンにして、下の入口から開き直してください。音源や設定を消す必要はありません。</p><p><a style="color:#c3f57d" href="'+BASE+'start.html">SHOW PLAYERを開き直す</a></p></body></html>',{status:503,headers:{'Content-Type':'text/html; charset=utf-8'}});}
+   catch{return new Response('<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SHOW PLAYER</title><body style="background:#f3f0e8;color:#202e3a;font-family:sans-serif;padding:32px"><h1>画面の保存を読み込めません</h1><p>ネット接続をオンにして、下の入口から開き直してください。音源や設定を消す必要はありません。</p><p><a style="color:#167b86" href="'+BASE+'start.html">SHOW PLAYERを開き直す</a></p></body></html>',{status:503,headers:{'Content-Type':'text/html; charset=utf-8'}});}
   })());return;
  }
  e.respondWith((async()=>{const cache=await caches.open(CACHE);let cached=await cache.match(e.request);if(!cached)cached=await caches.match(e.request);if(!cached)return cleanResponse(await fetch(e.request));
