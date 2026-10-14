@@ -1,8 +1,8 @@
-import {chooseAudioMode} from './audio-mode.mjs?v=116';
-import {BufferedTrack} from './buffer-engine.mjs?v=116';
-import {Transport} from './transport.mjs?v=116';
-import {loadLibrary,readStore,writeLibrary} from './repository.mjs?v=116';
-import {cleanEntry,validateList,digest} from './transfer.mjs?v=116';
+import {chooseAudioMode} from './audio-mode.mjs?v=117';
+import {BufferedTrack} from './buffer-engine.mjs?v=117';
+import {Transport} from './transport.mjs?v=117';
+import {loadLibrary,readStore,writeLibrary} from './repository.mjs?v=117';
+import {cleanEntry,validateList,digest} from './transfer.mjs?v=117';
 const ICON_PLAY='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.86l11-6.8a1 1 0 0 0 0-1.72l-11-6.8A1 1 0 0 0 8 5.2z"/></svg>';
 const ICON_PAUSE='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="4.5" width="4.2" height="15" rx="1.2"/><rect x="13.8" y="4.5" width="4.2" height="15" rx="1.2"/></svg>';
 const ICON_GRIP='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
@@ -200,7 +200,7 @@ async function restore(){try{const restored=await loadLibrary();db=restored.db;l
 
 async function offlineSetup(){
  if(!('serviceWorker'in navigator)){report('オフライン保存が使えません。Safariで開いてください。',true);return;}
- const check=()=>{const worker=navigator.serviceWorker.controller;if(!worker)return;const channel=new MessageChannel();channel.port1.onmessage=e=>{swReady=e.data.ready&&e.data.version==='show-player-offline-v116';offlineBanner();channel.port1.close();};worker.postMessage('OFFLINE_STATUS',[channel.port2]);};
+ const check=()=>{const worker=navigator.serviceWorker.controller;if(!worker)return;const channel=new MessageChannel();channel.port1.onmessage=e=>{swReady=e.data.ready&&e.data.version==='show-player-offline-v117';offlineBanner();channel.port1.close();};worker.postMessage('OFFLINE_STATUS',[channel.port2]);};
  navigator.serviceWorker.addEventListener('controllerchange',check);check();
  try{await navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'});await navigator.serviceWorker.ready;check();}
  catch(e){if(navigator.serviceWorker.controller){check();log('オフライン','既存の保存画面を使用');}else{report('画面のオフライン保存に失敗しました。ネット接続時に開き直してください。',true);log('オフライン',e.message);}}
