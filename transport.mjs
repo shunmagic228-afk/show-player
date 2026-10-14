@@ -43,7 +43,10 @@ export class Transport {
   this.state='stopped';if(running){await this.io.play();this.state='playing';}
  }
  tick(){if(!this.fade||this.state==='paused'||this.state==='starting')return;this.level=this.value();if(this.io.now()-this.fade.start>=this.fade.seconds){const kind=this.fade.kind;this.fade=null;this.level=kind==='in'?1:0;this.io.gain(this.level);if(kind==='out')this.finishOutgoing();else this.state='playing';this.notify();}}
- naturalEnd(){if(!['playing','fadingIn','fadingOut'].includes(this.state))return;this.cancelFade();this.io.pause();this.state='ended';this.level=0;this.io.gain(0);this.headArmed=false;this.report('曲が終了しました。右を押すまで次曲は鳴りません。');this.notify();}
+ naturalEnd(){if(!['playing','fadingIn','fadingOut'].includes(this.state))return;const wasFadingOut=this.state==='fadingOut';this.cancelFade();this.io.pause();this.state='ended';this.level=0;this.io.gain(0);this.headArmed=false;
+  // 完パケ: play the whole song, then continue; the next song starts by its own in-settings. A right press during the end fade keeps the old safe behavior.
+  if(this.tracks[this.index]?.fullPlay===true&&!wasFadingOut&&(this.index+1<this.tracks.length||this.selectedIndex!==null)){this.report('完パケ：曲が最後まで終わりました。次曲を開始します。');this.notify();const ticket=++this.autoEpoch,index=this.index;this.dispatch('autoAdvance',{ticket,index});return;}
+  this.report('曲が終了しました。右を押すまで次曲は鳴りません。');this.notify();}
  holdForEdit(){
  this.io.pause();this.fade=null;this.pausedMode=null;this.headArmed=false;
  if(['playing','fadingIn','fadingOut','paused'].includes(this.state)){
@@ -70,7 +73,7 @@ export class Transport {
  if(!wasPlaying){if(this.state!=='paused'){this.level=1;this.io.gain(1);}this.state='paused';}
  else{await this.io.play();this.state='playing';}
 }
- async command(action,value){if(['next','stop','previous','edit','activateSelection'].includes(action))this.cancelAuto();if(action==='autoAdvance'){if(value.ticket===this.autoEpoch&&this.state==='waiting'&&this.index===value.index){this.cancelAuto();await this.advance();}this.notify();return;}if(action==='edit')this.holdForEdit();else if(action==='stop'){this.selectedIndex=null;this.editStart=false;this.io.pause();this.fade=null;this.level=1;this.io.gain(1);if(this.tracks.length)await this.io.seek(0);this.headArmed=false;this.state=this.tracks.length?'stopped':'empty';}
+ async command(action,value){if(['next','stop','previous','edit','activateSelection'].includes(action))this.cancelAuto();if(action==='autoAdvance'){if(value.ticket===this.autoEpoch&&(this.state==='waiting'||this.state==='ended')&&this.index===value.index){this.cancelAuto();await this.advance();}this.notify();return;}if(action==='edit')this.holdForEdit();else if(action==='stop'){this.selectedIndex=null;this.editStart=false;this.io.pause();this.fade=null;this.level=1;this.io.gain(1);if(this.tracks.length)await this.io.seek(0);this.headArmed=false;this.state=this.tracks.length?'stopped':'empty';}
  else if(this.tracks.length){if(action==='select')this.selectTo(value);if(action==='activateSelection')await this.activateSelection();if(action==='clearSelection')this.selectedIndex=null;if(action==='seek')await this.seekTo(value);if(action==='next')await this.next();if(action==='previous')await this.previous();if(action==='toggle')await this.central();if(action==='pause'&&['playing','fadingIn','fadingOut'].includes(this.state))await this.central();if(action==='play'&&!['playing','fadingIn','fadingOut','starting'].includes(this.state))await this.central();}
  this.notify();}
 }
