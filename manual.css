@@ -1,10 +1,10 @@
 :root{color-scheme:light;--bg:#f3f0e8;--panel:#fff;--border:#e2ddd0;--text:#202e3a;--muted:#5d6a74;--accent:#167b86;--accent-text:#0f5f69;--soft:#e3f1f1;--soft-border:#8cc3c8;--warn-bg:#fbefd0;--warn-border:#c58a1b;--warn:#7a4f00;--shadow:0 1px 2px #202e3a14,0 6px 18px #202e3a0d}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Helvetica Neue",sans-serif;line-height:1.75;-webkit-text-size-adjust:100%}
+body{margin:0;background:radial-gradient(1000px 420px at 80% -100px,#dcecec 0%,#f3f0e8 62%) fixed,var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Helvetica Neue",sans-serif;line-height:1.75;-webkit-text-size-adjust:100%}
 main{max-width:760px;margin:auto;padding:16px 14px calc(40px + env(safe-area-inset-bottom))}
 a{color:var(--accent-text)}
 .bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:2px 2px 14px}
-.brand{font-weight:800;letter-spacing:1.5px;font-size:17px}
+.brand{display:flex;align-items:center;gap:11px}.brand b{font-weight:800;letter-spacing:2.4px;font-size:17px}.logo{width:36px;height:36px;border-radius:11px;box-shadow:0 4px 12px #115f6940}
 .back{font-size:13px;font-weight:600;text-decoration:none;border:1px solid var(--soft-border);background:var(--soft);border-radius:20px;padding:5px 14px;white-space:nowrap}
 h1{font-size:26px;line-height:1.35;margin:4px 0 6px}
 h2{font-size:20px;margin:0 0 10px;padding-top:2px}
