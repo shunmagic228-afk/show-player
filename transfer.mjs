@@ -1,7 +1,7 @@
 const MAGIC=new TextEncoder().encode('SHOWPLAYER_WEB1\n');
 const uuid=()=>crypto.randomUUID();
 export async function digest(blob){return [...new Uint8Array(await crypto.subtle.digest('SHA-256',await blob.arrayBuffer()))].map(x=>x.toString(16).padStart(2,'0')).join('');}
-export function cleanEntry(entry){return {id:entry.id,assetId:entry.assetId,name:entry.name,inMode:entry.inMode,inSeconds:entry.inSeconds??null,outMode:entry.outMode,outSeconds:entry.outSeconds??null,switchMode:entry.switchMode??'manualTwoStep',fullPlay:entry.fullPlay===true,duration:entry.duration??null,preflight:entry.preflight??'unverified'};}
+export function cleanEntry(entry){return {id:entry.id,assetId:entry.assetId,name:entry.name,inMode:entry.inMode,inSeconds:entry.inSeconds??null,outMode:entry.outMode,outSeconds:entry.outSeconds??null,switchMode:entry.switchMode??'manualTwoStep',fullPlay:entry.fullPlay===true,repeat:entry.repeat===true,duration:entry.duration??null,preflight:entry.preflight??'unverified'};}
 export function validateList(list){
  if(!list||typeof list.id!=='string'||!list.id||typeof list.name!=='string'||!list.name.trim()||!Array.isArray(list.entries))throw Error('セットリスト情報が不正です');
  if(!Number.isSafeInteger(list.revision)||list.revision<0||(typeof list.updatedAt!=='string'||!Number.isFinite(Date.parse(list.updatedAt))))throw Error('セットリストの版情報が不正です');
@@ -11,6 +11,7 @@ export function validateList(list){
   for(const d of ['in','out']){if(!['cut','fade'].includes(t[d+'Mode']))throw Error('未対応のフェード方法です');const sec=t[d+'Seconds'];if(sec!==null&&(!Number.isFinite(sec)||sec<0))throw Error('秒数が不正です');if(t[d+'Mode']==='fade'&&!(Number.isFinite(sec)&&sec>0))throw Error('フェード秒数を設定してください');}
   if(!['manualTwoStep','autoAfterFade'].includes(t.switchMode))throw Error('未対応の曲送り方法です');
   if(t.fullPlay!==undefined&&typeof t.fullPlay!=='boolean')throw Error('完パケの設定が不正です');
+  if(t.repeat!==undefined&&typeof t.repeat!=='boolean')throw Error('繰り返しの設定が不正です');
   if(t.duration!==null&&(!Number.isFinite(t.duration)||t.duration<=0))throw Error('音源の長さが不正です');
  }
  return list;
