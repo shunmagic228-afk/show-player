@@ -1,7 +1,7 @@
 // Playlist sharing: ZIP export / import. Self-contained (no dependencies, no network).
 // The ZIP holds one manifest (showplayer-playlist.json) and the audio files (audio/NN_name.ext).
 // Writing uses STORE (audio is already compressed); reading also accepts DEFLATE (ZIPs re-packed by other tools).
-import {validateList,cleanEntry} from './transfer.mjs?v=123';
+import {validateList,cleanEntry} from './transfer.mjs?v=124';
 
 export const FORMAT='show-player-playlist';
 export const FORMAT_VERSION=1;

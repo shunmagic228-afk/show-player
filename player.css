@@ -317,12 +317,12 @@ main{position:relative;z-index:1}
  .library-panel .tabs .selected{box-shadow:0 0 0 1px var(--hair-strong),0 0 22px rgba(62,231,218,.28),inset 0 1px 0 rgba(255,255,255,.18)}
 }
 
-/* iPhone/iPad only: each option is its own real button (taps on text inside a button were not reaching it on iOS). */
-.ios .row-label{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 12px;font-size:14px;font-weight:700}
-.ios .pair-row .row-label{justify-content:flex-start}
-.ios .mode-toggle.seg{display:inline-flex;gap:2px;padding:3px;min-width:0;min-height:48px;border-radius:14px;cursor:default}
-.ios .mode-toggle.seg .opt{-webkit-appearance:none;appearance:none;border:0;background:none;font:inherit;font-size:15px;font-weight:700;color:var(--muted);flex:1 1 0;min-width:78px;min-height:42px;padding:0 14px;border-radius:11px;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
-.ios .mode-toggle.seg .opt.on{background:linear-gradient(180deg,rgba(62,231,218,.55),rgba(24,150,160,.55));color:#fff;box-shadow:0 0 0 1px var(--hair-strong),0 0 16px rgba(62,231,218,.35),inset 0 1px 0 rgba(255,255,255,.25)}
+/* Each option is its own real button: clicks on a <span> inside a <button> did not reach it in Safari (iPhone and the Mac Dock app). */
+.row-label{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 12px;font-size:14px;font-weight:700}
+.pair-row .row-label{justify-content:flex-start}
+.mode-toggle.seg{display:inline-flex;gap:2px;padding:3px;min-width:0;min-height:48px;border-radius:14px;cursor:default}
+.mode-toggle.seg .opt{-webkit-appearance:none;appearance:none;border:0;background:none;font:inherit;font-size:15px;font-weight:700;color:var(--muted);flex:1 1 0;min-width:78px;min-height:42px;padding:0 14px;border-radius:11px;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.mode-toggle.seg .opt.on{background:linear-gradient(180deg,rgba(62,231,218,.55),rgba(24,150,160,.55));color:#fff;box-shadow:0 0 0 1px var(--hair-strong),0 0 16px rgba(62,231,218,.35),inset 0 1px 0 rgba(255,255,255,.25)}
 
 /* playlist sharing page (new, independent of the live/settings screens) */
 #share>*+*{margin-top:12px}
@@ -337,3 +337,7 @@ progress::-webkit-progress-bar{background:var(--track);border-radius:8px}
 progress::-webkit-progress-value{background:linear-gradient(90deg,#127f8c,var(--cyan,#3ee7da));border-radius:8px;box-shadow:0 0 10px rgba(62,231,218,.5)}
 progress::-moz-progress-bar{background:linear-gradient(90deg,#127f8c,#3ee7da);border-radius:8px}
 @media(max-width:599px){.tabs button{font-size:12px;gap:5px;padding:12px 4px}.tabs button svg{width:16px;height:16px}}
+
+/* Mac Safari Dock app: always make the BUTTON itself the click target (the iPhone path is left as it was).
+   Child icons/labels inside a button must never swallow a click or shrink the hit area. */
+html:not(.ios) button *{pointer-events:none}
