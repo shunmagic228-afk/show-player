@@ -197,7 +197,8 @@ svg{display:block}
 /* two-option segmented toggle (the whole control is still one tap-to-switch button) */
 .mode-toggle.seg{display:inline-flex;gap:2px;padding:3px;min-width:0;min-height:44px;border-radius:13px;background:var(--seg);border:0;box-shadow:inset 0 1px 3px #00000055}
 .mode-toggle.seg:hover{background:var(--seg)}
-.mode-toggle.seg .opt{display:grid;place-items:center;min-width:76px;padding:0 14px;border-radius:10px;font-size:14px;font-weight:700;color:var(--muted)}
+.mode-toggle.seg .opt{display:grid;place-items:center;flex:1 1 0;min-width:76px;min-height:40px;padding:0 14px;border-radius:10px;font-size:14px;font-weight:700;color:var(--muted)}
+.mode-toggle.seg .opt:not(.on):hover{color:var(--text);background:rgba(255,255,255,.06)}
 .mode-toggle.seg .opt.on{background:linear-gradient(180deg,var(--accent-2),var(--accent));color:#fff;box-shadow:0 3px 10px #1f98a45a}
 .mode-toggle.seg.active{background:var(--seg);box-shadow:inset 0 1px 3px #00000055}
 .seconds{display:flex;gap:12px;align-items:center;margin-top:8px}
