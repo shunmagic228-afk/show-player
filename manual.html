@@ -1,4 +1,4 @@
-<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f3f0e8"><title>SHOW PLAYER 使い方マニュアル</title><link rel="icon" type="image/png" href="icon-192.png"><link rel="stylesheet" href="manual.css?v=125"></head><body><main>
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f3f6fa"><title>SHOW PLAYER 使い方マニュアル</title><link rel="icon" type="image/png" href="icon-192.png"><link rel="stylesheet" href="manual.css?v=126"></head><body><main>
 <div class="bar"><span class="brand"><svg class="logo" viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#23a0ac"/><stop offset="1" stop-color="#115f69"/></linearGradient></defs><rect width="48" height="48" rx="13" fill="url(#lg)"/><path d="M19 14.5v19a1.2 1.2 0 0 0 1.8 1l15.5-9.500a1.2 1.2 0 0 0 0-2L20.800 13.500a1.200 1.200 0 0 0-1.800 1z" fill="#f3f0e8"/></svg><b>SHOW PLAYER</b></span><a class="back" href="app.html">← アプリに戻る</a></div>
 <h1>使い方マニュアル</h1>
 <p class="lead">ショーの音楽を、リモコン1つで流すためのアプリです。画面には操作に必要なものだけを置き、説明はここにまとめています。画像は実際の画面です（曲名やフェードの数字はサンプル）。</p>
@@ -34,12 +34,13 @@
 </section>
 
 <section id="screen"><h2>2. 本番画面の見方</h2>
-<figure><img src="manual/player.png" alt="本番画面（再生中）" width="430"><figcaption>再生中の画面（フェードイン中）。</figcaption></figure>
+<figure><img src="manual/player.png" alt="本番画面（再生中）" width="430"><figcaption>再生中の画面（フェードイン中）。曲名・再生ボタン・状態とフェード・次の曲（NEXT）が、スクロールなしで1画面に収まります。</figcaption></figure>
 <table>
 <tr><th>表示</th><th>内容</th></tr>
 <tr><td>01 / 02</td><td>今の曲の番号 / 曲数</td></tr>
 <tr><td>右上の丸い表示</td><td>状態（停止・再生中・一時停止・フェードイン・フェードアウト・無音待機・曲終了 など）</td></tr>
-<tr><td>大きな曲名・次の曲</td><td>今の曲と、次に流れる曲。準備した曲があれば「次に開始（準備中）」と出ます</td></tr>
+<tr><td>大きな曲名</td><td>今の曲の名前（長い名前は2行まで表示）</td></tr>
+<tr><td>NEXT</td><td>次に流れる曲と、その曲の設定（クロス・開始／終了の秒数）。準備した曲があれば「次に開始（準備中）」と出ます</td></tr>
 <tr><td>バー・時間</td><td>再生位置。ドラッグかタップで位置を変えられます（離すと反映）。フェード中・無音待機中は変えられません</td></tr>
 <tr><td>｜◀ ／ 中央 ／ ▶｜</td><td>画面のボタンもリモコンの左・中央・右と同じ動きをします</td></tr>
 <tr><td>右：…</td><td>今右を押すと何が起きるかの表示。状態によって変わります。横には、その曲の設定（手動・クロス・完パケ・繰り返し、開始・終了の秒数）、フェード中は残り時間が出ます</td></tr>
@@ -64,7 +65,7 @@
 </section>
 
 <section id="settings"><h2>4. 曲ごとの設定</h2>
-<p>「曲・フェード設定」で、曲ごとに設定します。「カット｜フェード」「手動｜クロス」の切り替えは、選ばれている側が青緑で表示されます。選びたい側の文字（四角）を、iPhoneは1回タップ、Macは1回クリックすると、その側が選ばれます（選ばれている側を押しても変わりません）。</p>
+<p>「曲・フェード設定」で、曲ごとに設定します。iPhoneでは、曲ごとのカードを「∨」で開閉できます（最初は今の曲だけが開いています）。Macでは、すべて開いたままです。「カット｜フェード」「手動｜クロス」の切り替えは、選ばれている側が青緑で表示されます。選びたい側の文字（四角）を、iPhoneは1回タップ、Macは1回クリックすると、その側が選ばれます（選ばれている側を押しても変わりません）。</p>
 <figure><img src="manual/card1.png" alt="曲ごとの設定（フェード）" width="430"><figcaption>開始・終了を「フェード」にした例。選ばれている側が青緑で表示されます。</figcaption></figure>
 <h3>開始方法・終了方法（カット／フェード）</h3>
 <ul>
@@ -108,9 +109,9 @@
 </section>
 
 <section id="lists"><h2>6. セットリストと音源の管理</h2>
-<h3>セットリスト（画面上部・PCは左側）</h3>
-<figure><img src="manual/list.png" alt="セットリストの選択" width="430"><figcaption>セットリストの切り替え・新規・複製・削除。</figcaption></figure>
-<ul><li>「＋ 新規」「複製」（音源は再利用されます）、「削除」（確認が出ます）。個数に上限はありません。</li>
+<h3>セットリストの切り替え・新規・複製・削除</h3>
+<figure><img src="manual/list.png" alt="セットリストの選択" width="430"><figcaption>iPhone：画面右上の選択欄で切り替え、横の歯車（⚙）を押すと「新規・複製・削除」が開きます。Mac：左のサイドバーに常に表示されます。</figcaption></figure>
+<ul><li>「＋ 新規」「複製」（音源は再利用されます）、「削除」（確認が出ます）。個数に上限はありません。本番中（再生中・一時停止中）は、操作できません。</li>
 <li>リスト名は「曲・フェード設定」の「セットリスト名」で変更します。</li></ul>
 <h3>音源の取り込み</h3>
 <figure><img src="manual/import.png" alt="音源の追加" width="430"><figcaption>音源をまとめて追加。下の「保存済み音源」から選んで追加もできます。</figcaption></figure>
@@ -137,7 +138,7 @@
 <section id="offline"><h2>7. オフライン・機内モードの確認</h2>
 <ol>
 <li>ネットにつないだ状態で、ホーム画面のアプリを開く。</li>
-<li>画面上部が「オフライン準備OK・音源と設定は端末保存済み」になっているか確認。</li>
+<li>本番画面の上のほうに「オフライン準備OK・音源と設定は端末保存済み」と出ているか確認（準備が整っていない間は、3つの準備の印も出ます）。</li>
 <li>機内モードにして、Bluetoothだけオンに戻す。</li>
 <li>アプリを完全に閉じて、開き直す。</li>
 <li>GOを押して、リモコンの中央・左右・音量を試す。</li>
