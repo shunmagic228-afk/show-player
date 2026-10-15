@@ -1,4 +1,4 @@
-<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f3f0e8"><title>SHOW PLAYER 使い方マニュアル</title><link rel="icon" href="icon.svg"><link rel="stylesheet" href="manual.css?v=122"></head><body><main>
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f3f0e8"><title>SHOW PLAYER 使い方マニュアル</title><link rel="icon" href="icon.svg"><link rel="stylesheet" href="manual.css?v=123"></head><body><main>
 <div class="bar"><span class="brand"><svg class="logo" viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#23a0ac"/><stop offset="1" stop-color="#115f69"/></linearGradient></defs><rect width="48" height="48" rx="13" fill="url(#lg)"/><path d="M19 14.5v19a1.2 1.2 0 0 0 1.8 1l15.5-9.500a1.2 1.2 0 0 0 0-2L20.800 13.500a1.200 1.200 0 0 0-1.800 1z" fill="#f3f0e8"/></svg><b>SHOW PLAYER</b></span><a class="back" href="app.html">← アプリに戻る</a></div>
 <h1>使い方マニュアル</h1>
 <p class="lead">ショーの音楽を、リモコン1つで流すためのアプリです。画面には操作に必要なものだけを置き、説明はここにまとめています。画像は実際の画面です（曲名やフェードの数字はサンプル）。</p>
@@ -12,6 +12,7 @@
 <li><a href="#lists">セットリストと音源の管理</a></li>
 <li><a href="#offline">オフライン・機内モードの確認</a></li>
 <li><a href="#trouble">困ったとき・注意</a></li>
+<li><a href="#share">プレイリスト共有（ZIP）</a></li>
 </ol></nav>
 
 <section id="prepare"><h2>1. 本番前の準備</h2>
@@ -161,6 +162,19 @@
 <li>長い曲は、読み込みに時間がかかったり、端末の負荷が大きくなったりする場合があります。</li>
 <li>OSのアップデート、Bluetooth機器、音響の接続を変えたときは、本番前に必ず確認してください。</li>
 </ul>
+</section>
+<section id="share"><h2>9. プレイリスト共有（ZIPで書き出し・読み込み）</h2>
+<p>作ったプレイリストを、<b>音源・曲順・フェードなどの設定ごと</b>、1つのZIPにまとめて、別の端末へ渡したり、バックアップしたりできます。画面の「プレイリスト共有」から使います（本番中は、再生を止めてから開いてください）。</p>
+<figure><img src="manual/share.png" alt="プレイリスト共有ページ" width="430"><figcaption>「ZIPで書き出す」と「ZIPから読み込む」。</figcaption></figure>
+<h3>書き出す（Macなど）</h3>
+<ol><li>「プレイリスト共有」を開き、書き出すプレイリストを選ぶ。</li><li>「ZIPで書き出す」を押す。進み具合が表示され、「プレイリスト名.zip」が保存されます（Macはダウンロードフォルダ）。</li></ol>
+<p>ZIPには、プレイリスト名、すべての音源ファイル、曲順、各曲のフェード・カットの設定と秒数、曲送り（手動／クロス）、完パケ・繰り返しの設定が入ります。サーバーには何も送られません（ネットがなくても書き出せます）。</p>
+<h3>読み込む（Mac・iPhone）</h3>
+<ul><li><b>Mac</b>：ZIPをドロップ枠にドラッグ＆ドロップ、または「ZIPから読み込む」でファイルを選ぶ。</li><li><b>iPhone</b>：MacからAirDropなどでZIPを送り、「ファイル」アプリに保存する。アプリの「ZIPから読み込む」を押し、そのZIPを選ぶ。</li></ul>
+<p>読み込むと、<b>新しいプレイリストとして追加</b>されます（今あるプレイリストは消えず、上書きもされません。同じ名前でも別のプレイリストになります）。完了すると、曲数が表示されます。音源は端末の中に保存され、以後はネットやMacがなくても再生できます。</p>
+<div class="tip"><b>バックアップとして使う：</b>プレイリストを仕上げたら、ZIPで書き出して、別の場所（クラウド、USBメモリなど）にも保管してください。アプリのデータが消えたときは、そのZIPを読み込めば、音源と設定ごと元に戻ります。</div>
+<div class="note"><b>エラーのとき：</b>ZIPが壊れている、音源が足りない、設定が合わないなどの場合は、理由を表示して読み込みを中止します。中途半端なプレイリストは作られず、今のプレイリストにも影響しません。ZIPを展開・編集すると読み込めなくなることがあるので、そのまま使ってください。</div>
+<p>iPhoneの保存容量が足りないときは、「端末の保存容量が足りません」と表示されます。大きなZIPは、読み込みに時間がかかります。進み具合の表示が終わるまで、画面を閉じないでください。</p>
 </section>
 <footer>SHOW PLAYER · 1.1.0</footer>
 </main></body></html>

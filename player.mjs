@@ -1,8 +1,9 @@
-import {chooseAudioMode} from './audio-mode.mjs?v=122';
-import {BufferedTrack} from './buffer-engine.mjs?v=122';
-import {Transport} from './transport.mjs?v=122';
-import {loadLibrary,readStore,writeLibrary} from './repository.mjs?v=122';
-import {cleanEntry,validateList,digest} from './transfer.mjs?v=122';
+import {chooseAudioMode} from './audio-mode.mjs?v=123';
+import {BufferedTrack} from './buffer-engine.mjs?v=123';
+import {Transport} from './transport.mjs?v=123';
+import {loadLibrary,readStore,writeLibrary} from './repository.mjs?v=123';
+import {cleanEntry,validateList,digest} from './transfer.mjs?v=123';
+import {initShare} from './share-ui.mjs?v=123';
 const ICON_PLAY='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.86l11-6.8a1 1 0 0 0 0-1.72l-11-6.8A1 1 0 0 0 8 5.2z"/></svg>';
 const ICON_PAUSE='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="4.5" width="4.2" height="15" rx="1.2"/><rect x="13.8" y="4.5" width="4.2" height="15" rx="1.2"/></svg>';
 const ICON_GRIP='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
@@ -119,7 +120,7 @@ function renderPreparation(){
  for(const [id,ok,label]of states){$(id).textContent=(ok?'✓ ':'○ ')+label;$(id).classList.toggle('ready',!!ok);}
 }
 function offlineBanner(){renderPreparation();const ready=swReady&&stored&&entries.length>0&&entries.every(t=>!t.missing&&t.preflight==='metadata');$('offlineStatus').classList.toggle('ready',ready);$('offlineStatus').textContent=ready?'✓ オフライン準備OK · 音源と設定は端末保存済み':!swReady?'画面をオフライン用に保存中（最初はネット接続が必要）':!entries.length?'✓ 画面保存済み · 次に音源を追加してください':entries.some(t=>t.missing)?'音源が見つかりません。再取り込みしてください':entries.some(t=>t.preflight!=='metadata')?'画面保存済み · 未確認の音源があります。「音源チェック」で確認してください':'画面保存済み · 音源・設定の保存を確認してください';}
-function invoke(action,route='画面',value){if(preparing){log(route,'GO準備中の操作',{action});return Promise.resolve();}if(action!=='stop'&&!$('edit').hidden){report('設定中です。本番画面に戻ってから再生してください。');return Promise.resolve();}if(action!=='stop'&&entries.some(t=>t.missing||t.preflight==='error')){report('音源が不足、または再生不可です。音源を確認してください。',true);return Promise.resolve();}log(route,action,{state:player.state,index:player.index+1,value});return player.dispatch(action,value);}
+function invoke(action,route='画面',value){if(preparing){log(route,'GO準備中の操作',{action});return Promise.resolve();}if(action!=='stop'&&(!$('edit').hidden||!$('share').hidden)){report('設定中です。本番画面に戻ってから再生してください。');return Promise.resolve();}if(action!=='stop'&&entries.some(t=>t.missing||t.preflight==='error')){report('音源が不足、または再生不可です。音源を確認してください。',true);return Promise.resolve();}log(route,action,{state:player.state,index:player.index+1,value});return player.dispatch(action,value);}
 for(const [id,action]of [['central','toggle'],['next','next'],['previous','previous'],['stop','stop']])$(id).addEventListener('click',()=>invoke(action));
 $('activateSelected').addEventListener('click',()=>invoke('activateSelection','選択曲の開始'));$('cancelSelected').addEventListener('click',()=>invoke('clearSelection','選択解除'));
 if(navigator.mediaSession){for(const [action,command]of [['nexttrack','next'],['previoustrack','previous'],['play','toggle'],['pause','toggle'],['stop','stop']]){try{navigator.mediaSession.setActionHandler(action,()=>{log('OS入力',action,{state:player.state,context:ctx?.state,receiverReady,trackPaused:playbackPaused(),position:playbackPosition(),engine:useBufferedAudio?'buffer':'media',receiverPaused:receiver.paused});return invoke(command,'リモコン／OS');});}catch(e){log('API',action+'登録不可',{error:e.message});}}}
@@ -133,9 +134,9 @@ function updateSeek(){const slider=$('seek');const duration=playbackDuration();c
 $('seek').addEventListener('input',()=>{seekDragging=true;paintSeek();$('position').textContent=format(Number($('seek').value));});
 $('seek').addEventListener('change',()=>{const target=Number($('seek').value);seekDragging=false;void invoke('seek','シークバー',target);});
 setInterval(()=>{player.tick();updateSeek();if(!seekDragging)$('position').textContent=format(playbackPosition());$('duration').textContent=format(playbackDuration());$('progressBar').style.width=(Number.isFinite(playbackDuration())&&playbackDuration()>0?Math.min(100,playbackPosition()/playbackDuration()*100):0)+'%';if(player.fade&&player.state!=='paused')$('fadeStatus').textContent=(player.fade.kind==='in'?'フェードイン':'フェードアウト')+' · 残り '+Math.max(0,player.fade.seconds-(io.now()-player.fade.start)).toFixed(1)+'秒';},100);
-function switchTab(edit){if(edit&&['playing','fadingIn','fadingOut','starting'].includes(player.state)){report('停止ボタンで止めてから、設定を開いてください。');return;}$('live').hidden=edit;$('edit').hidden=!edit;$('liveTab').classList.toggle('selected',!edit);$('editTab').classList.toggle('selected',edit);if(edit)renderEditor();}
+function switchTab(edit){if(edit&&['playing','fadingIn','fadingOut','starting'].includes(player.state)){report('停止ボタンで止めてから、設定を開いてください。');return;}$('live').hidden=edit;$('edit').hidden=!edit;$('share').hidden=true;$('shareTab').classList.remove('selected');$('liveTab').classList.toggle('selected',!edit);$('editTab').classList.toggle('selected',edit);if(edit)renderEditor();}
 $('testUnsaved').addEventListener('click',()=>{if(!editable()||!validSettings())return;switchTab(false);render();report(stored?'本番画面へ戻りました。':'未保存のままテストします。ページを閉じると変更を失う可能性があります。オフライン準備は未完了です。',!stored);});
-$('liveTab').addEventListener('click',()=>{if($('edit').hidden)return;void exclusive(async()=>{await persist();switchTab(false);},{saveFirst:false});});$('editTab').addEventListener('click',async()=>{if(busy||preparing)return;await player.dispatch('edit');switchTab(true);render();report('音を止めて設定画面を開きました。曲と位置を保持します。フェード途中の処理は終了します。');});$('back').addEventListener('click',()=>exclusive(async()=>{if(!validSettings())return;await persist();switchTab(false);},{saveFirst:false}));
+$('liveTab').addEventListener('click',()=>{if(!$('share').hidden){switchTab(false);render();return;}if($('edit').hidden)return;void exclusive(async()=>{await persist();switchTab(false);},{saveFirst:false});});$('editTab').addEventListener('click',async()=>{if(busy||preparing)return;await player.dispatch('edit');switchTab(true);render();report('音を止めて設定画面を開きました。曲と位置を保持します。フェード途中の処理は終了します。');});$('back').addEventListener('click',()=>exclusive(async()=>{if(!validSettings())return;await persist();switchTab(false);},{saveFirst:false}));
 function validSettings(){for(const t of entries)for(const d of ['in','out'])if(t[d+'Mode']==='fade'&&(!Number.isFinite(t[d+'Seconds'])||t[d+'Seconds']<=0)){report('「'+t.name+'」の'+(d==='in'?'開始':'終了')+'フェード秒数を入力してください。',true);return false;}return true;}
 function serialEntries(){return entries.map(cleanEntry);}
 function currentList(){return library.lists.find(x=>x.id===library.activeId);}
@@ -208,7 +209,7 @@ async function restore(){try{const restored=await loadLibrary();db=restored.db;l
 
 async function offlineSetup(){
  if(!('serviceWorker'in navigator)){report('オフライン保存が使えません。Safariで開いてください。',true);return;}
- const check=()=>{const worker=navigator.serviceWorker.controller;if(!worker)return;const channel=new MessageChannel();channel.port1.onmessage=e=>{swReady=e.data.ready&&e.data.version==='show-player-offline-v122';offlineBanner();channel.port1.close();};worker.postMessage('OFFLINE_STATUS',[channel.port2]);};
+ const check=()=>{const worker=navigator.serviceWorker.controller;if(!worker)return;const channel=new MessageChannel();channel.port1.onmessage=e=>{swReady=e.data.ready&&e.data.version==='show-player-offline-v123';offlineBanner();channel.port1.close();};worker.postMessage('OFFLINE_STATUS',[channel.port2]);};
  navigator.serviceWorker.addEventListener('controllerchange',check);check();
  try{await navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'});await navigator.serviceWorker.ready;check();}
  catch(e){if(navigator.serviceWorker.controller){check();log('オフライン','既存の保存画面を使用');}else{report('画面のオフライン保存に失敗しました。ネット接続時に開き直してください。',true);log('オフライン',e.message);}}
@@ -232,4 +233,8 @@ $('deleteList').addEventListener('click',()=>exclusive(async()=>{if(!confirm('�
 function renderReusePicker(){const map=new Map();for(const l of library.lists)for(const t of l.entries)if(!map.has(t.assetId))map.set(t.assetId,t.name);const picker=$('reusePicker');picker.replaceChildren();const first=document.createElement('option');first.value='';first.textContent='保存済み音源を選ぶ';picker.append(first);for(const [id,name]of map){const o=document.createElement('option');o.value=id;o.textContent=name;picker.append(o);}}
 $('reuseAdd').addEventListener('click',()=>{const id=$('reusePicker').value,name=$('reusePicker').selectedOptions[0]?.textContent;if(!id)return;void exclusive(async()=>{const blob=await assetBlob(id);if(!blob)throw Error('保存済み音源が見つかりません');const check=await probe(blob);if(check.status==='error')throw Error('この端末では音源を再生できません');const url=URL.createObjectURL(blob);objectURLs.push(url);entries.push({...entry(id,name,url),duration:check.duration,preflight:check.status});stored=false;player.setTracks(entries);await persist();renderEditor();report('保存済み音源を追加しました。');});});
 $('audioCheck').addEventListener('click',()=>exclusive(async()=>{report('保存済み音源を確認しています…');let bad=0;for(const t of entries){const blob=await assetBlob(t.assetId);if(!blob){t.missing=true;t.preflight='error';bad++;continue;}const check=await probe(blob);t.missing=false;t.preflight=check.status;if(check.duration)t.duration=check.duration;if(check.status!=='metadata')bad++;}stored=false;await persist();report(bad?'確認できない音源が'+bad+'曲あります。再取り込みか、実際の再生で確認してください。':'全曲の音源読み込みを確認しました。実際の出力とリモコンは再生して確認してください。',bad>0);},{saveFirst:false}));
+// プレイリスト共有（ZIP書き出し/読み込み）。再生処理には触れず、独立したページとして追加。
+const share=initShare({$,report,getLibrary:()=>library,setLibrary:v=>{library=v;},getDb:()=>db,assetBlob,activateList,exclusive,isIOS,appVersion:'1.1.0'});
+function openShare(){$('live').hidden=true;$('edit').hidden=true;$('share').hidden=false;$('liveTab').classList.remove('selected');$('editTab').classList.remove('selected');$('shareTab').classList.add('selected');share.render();render();}
+$('shareTab').addEventListener('click',()=>{if(busy||preparing||!$('share').hidden)return;if(!$('edit').hidden){void exclusive(async()=>{if(!validSettings())return;await persist();openShare();},{saveFirst:false});return;}if(running(player.state)){report('再生を止めてから「プレイリスト共有」を開いてください。');return;}openShare();});
 $('engineNote').hidden=!useBufferedAudio;render();await restore();busy=false;render();void offlineSetup();

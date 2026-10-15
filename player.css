@@ -323,3 +323,17 @@ main{position:relative;z-index:1}
 .ios .mode-toggle.seg{display:inline-flex;gap:2px;padding:3px;min-width:0;min-height:48px;border-radius:14px;cursor:default}
 .ios .mode-toggle.seg .opt{-webkit-appearance:none;appearance:none;border:0;background:none;font:inherit;font-size:15px;font-weight:700;color:var(--muted);flex:1 1 0;min-width:78px;min-height:42px;padding:0 14px;border-radius:11px;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .ios .mode-toggle.seg .opt.on{background:linear-gradient(180deg,rgba(62,231,218,.55),rgba(24,150,160,.55));color:#fff;box-shadow:0 0 0 1px var(--hair-strong),0 0 16px rgba(62,231,218,.35),inset 0 1px 0 rgba(255,255,255,.25)}
+
+/* playlist sharing page (new, independent of the live/settings screens) */
+#share>*+*{margin-top:12px}
+.share-card{display:flex;flex-direction:column;gap:10px}
+.share-h{font-size:16px;font-weight:800;letter-spacing:.3px}
+.share-card .list-picker{margin:0}
+.share-card .small{margin:0;min-height:1.2em}
+.share-drop.busy{opacity:.55;pointer-events:none}
+.ios .share-drop p{display:none}
+progress{-webkit-appearance:none;appearance:none;display:block;width:100%;height:8px;border:0;border-radius:8px;background:var(--track);overflow:hidden}
+progress::-webkit-progress-bar{background:var(--track);border-radius:8px}
+progress::-webkit-progress-value{background:linear-gradient(90deg,#127f8c,var(--cyan,#3ee7da));border-radius:8px;box-shadow:0 0 10px rgba(62,231,218,.5)}
+progress::-moz-progress-bar{background:linear-gradient(90deg,#127f8c,#3ee7da);border-radius:8px}
+@media(max-width:599px){.tabs button{font-size:12px;gap:5px;padding:12px 4px}.tabs button svg{width:16px;height:16px}}
