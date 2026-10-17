@@ -1,6 +1,6 @@
 // Decoded-audio transport for iPhone. Cache only the active asset.
 export class BufferedTrack {
- constructor({context,destination,asset,ended=()=>{},beforeStart=()=>{},log=()=>{},changed=()=>{},budgetBytes=2.2e9}){Object.assign(this,{context,destination,asset,endedCallback:ended,beforeStart,log,changed,budgetBytes});this.track=null;this.buffer=null;this.key=null;this.pending=null;this.cache=new Map();this.inflight=new Map();this.wanted=[];this.warming=false;this.node=null;this.offset=0;this.startedAt=0;this.attempt=0;this.ended=false;}
+ constructor({context,destination,asset,ended=()=>{},beforeStart=()=>{},log=()=>{},changed=()=>{},budgetBytes=1.6e9,store=null,offlineContext=null}){Object.assign(this,{context,destination,asset,endedCallback:ended,beforeStart,log,changed,budgetBytes,store,offlineContext});this.storeChain=Promise.resolve();this.stored=new Set();this.storedLoaded=false;this.converting=null;this.convertQueue=[];this.track=null;this.buffer=null;this.key=null;this.pending=null;this.cache=new Map();this.inflight=new Map();this.wanted=[];this.warming=false;this.node=null;this.offset=0;this.startedAt=0;this.attempt=0;this.ended=false;}
  get duration(){return this.buffer?.duration??this.track?.duration??NaN;}
  get paused(){return !this.node;}
  get position(){return Math.min(this.duration||Infinity,this.offset+(this.node?Math.max(0,this.context().currentTime-this.startedAt):0));}
@@ -12,7 +12,11 @@ export class BufferedTrack {
  decodeKey(key){
   if(this.inflight.has(key))return this.inflight.get(key);
   const ctx=this.context();
-  const job=(async()=>{const t0=Date.now();const blob=await this.asset(key);if(!blob)throw Error('保存音源が見つかりません');const buffer=await ctx.decodeAudioData(await blob.arrayBuffer());this.log('buffer decoded',{ms:Date.now()-t0,key,duration:buffer.duration,sampleRate:buffer.sampleRate,channels:buffer.numberOfChannels,decodedBytes:buffer.length*buffer.numberOfChannels*4});return buffer;})();
+  const job=(async()=>{const t0=Date.now();
+   if(this.store){try{const rec=await this.store.get(key);const cached=bufferFromRecord(ctx,rec);if(cached){this.stored.add(key);this.log('buffer from cache',{ms:Date.now()-t0,key,duration:cached.duration});return cached;}}catch(e){this.log('buffer cache read failed',{message:e.message});}}
+   const blob=await this.asset(key);const tAsset=Date.now()-t0;if(!blob)throw Error('保存音源が見つかりません');const bytes=await blob.arrayBuffer();const tRead=Date.now()-t0-tAsset;const buffer=await ctx.decodeAudioData(bytes);this.log('buffer timing',{key,assetMs:tAsset,readMs:tRead,decodeMs:Date.now()-t0-tAsset-tRead,fileBytes:bytes.byteLength});
+   if(this.store&&!this.storeOff){const store=this.store;this.storeChain=this.storeChain.then(()=>store.put(key,pcmRecord(buffer))).then(()=>{this.stored.add(key);this.log('buffer cache saved',{key});},e=>{this.storeOff=true;this.log('buffer cache save failed',{message:e.message});});}
+   this.log('buffer decoded',{ms:Date.now()-t0,key,duration:buffer.duration,sampleRate:buffer.sampleRate,channels:buffer.numberOfChannels,decodedBytes:buffer.length*buffer.numberOfChannels*4});return buffer;})();
   this.inflight.set(key,job);const done=()=>{if(this.inflight.get(key)===job)this.inflight.delete(key);};job.then(done,done);return job;
  }
  async prepare(){
@@ -25,6 +29,17 @@ export class BufferedTrack {
  // Decode the songs that will probably play next (in order, one at a time) so switching never waits for decoding. Keeps only these in memory besides the active one.
  bytesOf(b){return b?b.length*b.numberOfChannels*4:0;}
  usedBytes(){let n=this.bytesOf(this.buffer);for(const b of this.cache.values())n+=this.bytesOf(b);return n;}
+ isStored(key){return this.stored.has(key);}
+ isConverting(key){return this.converting===key;}
+ async loadStoredKeys(){if(this.storedLoaded||!this.store)return;this.storedLoaded=true;try{for(const k of await this.store.keys())this.stored.add(k);}catch(e){this.log('buffer cache list failed',{message:e.message});}this.changed();}
+ // Convert songs into the on-disk decoded cache ahead of the show (one at a time, not kept in memory). Uses its own offline audio context so it never touches the playback graph.
+ convertMany(keys){
+  this.convertQueue=keys.filter(Boolean);if(this.convertRunning||!this.store||!this.offlineContext)return;this.convertRunning=true;
+  (async()=>{try{await this.loadStoredKeys();for(;;){const key=this.convertQueue.find(k=>!this.stored.has(k)&&!this.convertFailed?.has(k));if(!key)break;this.converting=key;this.changed();
+   try{const t0=Date.now();const blob=await this.asset(key);if(!blob)throw Error('保存音源が見つかりません');const bytes=await blob.arrayBuffer();const tRead=Date.now()-t0;const off=this.offlineContext();const buffer=await off.decodeAudioData(bytes);const tDec=Date.now()-t0-tRead;await this.store.put(key,pcmRecord(buffer));this.stored.add(key);this.log('buffer converted',{key,readMs:tRead,decodeMs:tDec,saveMs:Date.now()-t0-tRead-tDec,duration:buffer.duration});}
+   catch(e){(this.convertFailed||(this.convertFailed=new Set())).add(key);this.log('buffer convert failed',{key,message:e.message});}
+   this.converting=null;this.changed();}}finally{this.converting=null;this.convertRunning=false;this.changed();}})();
+ }
  isReady(key){return (key===this.key&&!!this.buffer)||this.cache.has(key);}
  isLoading(key){return this.inflight.has(key);}
  // Decode songs ahead, in the given priority order, one at a time, within a memory budget. Decoded songs stay available (also songs already played) so any jump is instant.
@@ -46,4 +61,25 @@ export class BufferedTrack {
   try{this.beforeStart(this.startedAt);node.start(this.startedAt,this.offset);}catch(e){this.node=null;node.disconnect();throw e;}
   this.log('buffer start',{position:this.offset,scheduledAt:this.startedAt});return this.startedAt;
  }
+}
+
+// Mac (non-iPhone): remember each song's decoded audio in a separate database so the slow decode happens once, not at show time.
+// Separate DB ('show-player-decoded'); the songs/settings database is never touched. Any failure falls back to normal decoding.
+export function createDecodedStore(){
+ let opening=null;
+ const open=()=>opening||(opening=new Promise((resolve,reject)=>{const r=indexedDB.open('show-player-decoded',1);r.onupgradeneeded=()=>r.result.createObjectStore('pcm');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);r.onblocked=()=>reject(Error('blocked'));}));
+ const run=(mode,fn)=>open().then(db=>new Promise((resolve,reject)=>{const tx=db.transaction('pcm',mode);let out;const req=fn(tx.objectStore('pcm'));if(req)req.onsuccess=()=>{out=req.result;};tx.oncomplete=()=>resolve(out);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||Error('aborted'));}));
+ return {
+  get:key=>run('readonly',st=>st.get(key)),
+  put:(key,record)=>run('readwrite',st=>st.put(record,key)),
+  remove:key=>run('readwrite',st=>st.delete(key)),
+  keys:()=>run('readonly',st=>st.getAllKeys()),
+ };
+}
+export const PCM_FORMAT='show-player-pcm-f32-v1';
+export function pcmRecord(buffer){return {format:PCM_FORMAT,sampleRate:buffer.sampleRate,length:buffer.length,channels:Array.from({length:buffer.numberOfChannels},(_,i)=>buffer.getChannelData(i))};}
+export function bufferFromRecord(ctx,rec){
+ if(!rec||rec.format!==PCM_FORMAT||!Array.isArray(rec.channels)||!rec.channels.length||!(rec.length>0))return null;
+ for(const c of rec.channels)if(!(c instanceof Float32Array)||c.length!==rec.length)return null;
+ const b=ctx.createBuffer(rec.channels.length,rec.length,rec.sampleRate);rec.channels.forEach((c,i)=>b.copyToChannel(c,i));return b;
 }
