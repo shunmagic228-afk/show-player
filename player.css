@@ -312,5 +312,7 @@ footer{font-size:11px;font-weight:600;color:var(--faint);letter-spacing:2px;text
 .track .ld.bad{color:#c0392b}
 #saveStatus.all-ready{color:#1f9d55;font-weight:700}
 .hint p{font-variant-numeric:tabular-nums}
-.ios .track .ld{display:none}
 html:not(.ios) .track .select-hint{min-width:3.9em;text-align:center}
+.track .ld.stored{color:#6fa8dc}
+#saveStatus.all-stored{color:#3f8cc9;font-weight:700}
+.ios .track .ld{min-width:1.2em;font-size:16px}
