@@ -1,9 +1,9 @@
-import {chooseAudioMode} from './audio-mode.mjs?v=128';
-import {BufferedTrack} from './buffer-engine.mjs?v=128';
-import {Transport} from './transport.mjs?v=128';
-import {loadLibrary,readStore,writeLibrary} from './repository.mjs?v=128';
-import {cleanEntry,validateList,digest} from './transfer.mjs?v=128';
-import {initShare} from './share-ui.mjs?v=128';
+import {chooseAudioMode} from './audio-mode.mjs?v=129';
+import {BufferedTrack} from './buffer-engine.mjs?v=129';
+import {Transport} from './transport.mjs?v=129';
+import {loadLibrary,readStore,writeLibrary} from './repository.mjs?v=129';
+import {cleanEntry,validateList,digest} from './transfer.mjs?v=129';
+import {initShare} from './share-ui.mjs?v=129';
 const ICON_PLAY='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.86l11-6.8a1 1 0 0 0 0-1.72l-11-6.8A1 1 0 0 0 8 5.2z"/></svg>';
 const ICON_PAUSE='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="4.5" width="4.2" height="15" rx="1.2"/><rect x="13.8" y="4.5" width="4.2" height="15" rx="1.2"/></svg>';
 const ICON_GRIP='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
@@ -217,19 +217,12 @@ async function restore(){try{const restored=await loadLibrary();db=restored.db;l
 
 async function offlineSetup(){
  if(!('serviceWorker'in navigator)){report('オフライン保存が使えません。Safariで開いてください。',true);return;}
- const check=()=>{const worker=navigator.serviceWorker.controller;if(!worker)return;const channel=new MessageChannel();channel.port1.onmessage=e=>{swReady=e.data.ready&&e.data.version==='show-player-offline-v128';offlineBanner();channel.port1.close();};worker.postMessage('OFFLINE_STATUS',[channel.port2]);};
+ const check=()=>{const worker=navigator.serviceWorker.controller;if(!worker)return;const channel=new MessageChannel();channel.port1.onmessage=e=>{swReady=e.data.ready&&e.data.version==='show-player-offline-v129';offlineBanner();channel.port1.close();};worker.postMessage('OFFLINE_STATUS',[channel.port2]);};
  navigator.serviceWorker.addEventListener('controllerchange',check);check();
  try{await navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'});await navigator.serviceWorker.ready;check();}
  catch(e){if(navigator.serviceWorker.controller){check();log('オフライン','既存の保存画面を使用');}else{report('画面のオフライン保存に失敗しました。ネット接続時に開き直してください。',true);log('オフライン',e.message);}}
 }
 window.addEventListener('offline',()=>{log('接続','オフライン');offlineBanner();});window.addEventListener('online',()=>{log('接続','オンライン');offlineBanner();});document.addEventListener('visibilitychange',()=>log('画面',document.visibilityState));
-// Mac (non-iPhone) only: a Dock app is never quit, so after hours/days idle the page keeps all its old memory and gets sluggish (the iPhone app is restarted by iOS, which is why it stays fast).
-// When nothing is playing/being edited and nobody touched it for a long time, quietly reload the page (saved songs/settings are untouched; GO is needed again as on every open).
-const STALE_MS=4*3600*1000;let lastActive=Date.now();
-function markActive(){lastActive=Date.now();}
-function idleEnough(){return !busy&&!preparing&&['empty','stopped','ended','error','waiting'].includes(player.state)&&!player.fade&&stored&&$('edit').hidden&&$('share').hidden;}
-function refreshIfStale(){if(isIOS)return;if(running(player.state)&&player.state!=='waiting'&&player.state!=='paused')markActive();if(Date.now()-lastActive<STALE_MS||!idleEnough())return;log('自動更新','長時間操作がないため画面を読み込み直します',{idleMinutes:Math.round((Date.now()-lastActive)/60000)});setTimeout(()=>location.reload(),200);}
-if(!isIOS){for(const ev of ['pointerdown','keydown','wheel'])document.addEventListener(ev,markActive,{capture:true,passive:true});document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshIfStale();});window.addEventListener('focus',refreshIfStale);setInterval(refreshIfStale,60000);}
 function renderLibraryControls(){
  const picker=$('listPicker');const old=picker.value;picker.replaceChildren();for(const list of library.lists){const o=document.createElement('option');o.value=list.id;o.textContent=list.name;picker.append(o);}picker.value=library.activeId??old;
  const list=currentList();$('listVersion').textContent=list?'更新 '+new Date(list.updatedAt).toLocaleString('ja-JP')+' · 版 '+list.revision:'セットリストを作成してください';
