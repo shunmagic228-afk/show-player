@@ -1,9 +1,9 @@
-import {chooseAudioMode} from './audio-mode.mjs?v=129';
-import {BufferedTrack} from './buffer-engine.mjs?v=129';
-import {Transport} from './transport.mjs?v=129';
-import {loadLibrary,readStore,writeLibrary} from './repository.mjs?v=129';
-import {cleanEntry,validateList,digest} from './transfer.mjs?v=129';
-import {initShare} from './share-ui.mjs?v=129';
+import {chooseAudioMode} from './audio-mode.mjs?v=131';
+import {BufferedTrack} from './buffer-engine.mjs?v=131';
+import {Transport} from './transport.mjs?v=131';
+import {loadLibrary,readStore,writeLibrary} from './repository.mjs?v=131';
+import {cleanEntry,validateList,digest} from './transfer.mjs?v=131';
+import {initShare} from './share-ui.mjs?v=131';
 const ICON_PLAY='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.86l11-6.8a1 1 0 0 0 0-1.72l-11-6.8A1 1 0 0 0 8 5.2z"/></svg>';
 const ICON_PAUSE='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="4.5" width="4.2" height="15" rx="1.2"/><rect x="13.8" y="4.5" width="4.2" height="15" rx="1.2"/></svg>';
 const ICON_GRIP='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
@@ -22,6 +22,8 @@ const isIOS=/iPhone|iPad|iPod/.test(navigator.userAgent||'')||(navigator.platfor
 if(isIOS)document.documentElement?.classList?.add('ios');
 const audioMode=chooseAudioMode({search:window.location?.search,userAgent:navigator.userAgent,platform:navigator.platform,maxTouchPoints:navigator.maxTouchPoints,vendor:navigator.vendor});
 const useBufferedAudio=audioMode.engine==='buffer';
+// Mac (non-iPhone) buffer engine: the song is played from the decoded buffer only, so do not also load the whole file into the <audio> element (double decoding/memory, and its load/seek waits stalled the controls).
+const elementHoldsSong=!(useBufferedAudio&&!isIOS);
 const $=id=>document.getElementById(id),audio=$('audio'),receiver=$('receiver');
 let receiverReady=false,preparing=false,preparationSource=false,receiverSource,receiverGain;
 let ctx,gain,outputGate,mediaSource,db,swReady=false,stored=false,busy=true,generation=0,cancelPlay=null,playAttempt=0;
@@ -33,6 +35,12 @@ const editable=()=>!busy&&(!running(player.state)||(!$('edit').hidden&&['paused'
 function report(message,error=false){$('notice').textContent=message;$('notice').classList.toggle('error',error);log('案内',message);}
 function log(route,label,details={}){events.push({seq:++sequence,time:new Date().toISOString(),route,label,details});if(events.length>500)events.shift();const box=$('log');if(!box)return;box.replaceChildren();for(const e of events.slice(-40).reverse()){const row=document.createElement('div');row.textContent='#'+e.seq+' '+new Date(e.time).toLocaleTimeString('ja-JP')+' ['+e.route+'] '+e.label;box.append(row);}}
 let currentGain=1;
+// 診断パネル（Ctrl+Shift+D で表示/非表示）。通常は何も表示しない。反応が遅い時に、どこで時間がかかったかを見るため。
+{let last=performance.now();setInterval(()=>{const n=performance.now(),lag=n-last-250;last=n;if(lag>150)log('遅延','画面処理が止まっていた',{ms:Math.round(lag),visible:document.visibilityState});},250);}
+let diagBox=null;
+function diagText(){const head='SHOW PLAYER 診断 v129 '+new Date().toISOString()+'\nUA: '+navigator.userAgent+'\nengine: '+audioMode.engine+'('+audioMode.reason+') ctx: '+(ctx?ctx.state+' sr='+ctx.sampleRate+' base='+ctx.baseLatency+' out='+ctx.outputLatency:'未作成')+' state: '+player.state+'\n';return head+events.slice(-80).map(e=>'#'+e.seq+' '+e.time.slice(11,23)+' ['+e.route+'] '+e.label+' '+(Object.keys(e.details||{}).length?JSON.stringify(e.details):'')).join('\n');}
+function diagRefresh(){if(diagBox)diagBox.querySelector('pre').textContent=diagText();}
+document.addEventListener('keydown',e=>{if(e.ctrlKey&&e.shiftKey&&(e.key==='D'||e.key==='d')){e.preventDefault();if(diagBox){diagBox.remove();diagBox=null;return;}diagBox=document.createElement('div');diagBox.style.cssText='position:fixed;inset:auto 8px 8px 8px;max-height:45vh;overflow:auto;background:#fff;color:#202e3a;border:1px solid #888;border-radius:8px;padding:8px;z-index:99999;font:11px/1.4 ui-monospace,monospace';const b=document.createElement('button');b.type='button';b.textContent='コピー';b.onclick=()=>{navigator.clipboard?.writeText(diagText());};const r=document.createElement('button');r.type='button';r.textContent='更新';r.onclick=diagRefresh;const pre=document.createElement('pre');pre.style.cssText='white-space:pre-wrap;margin:6px 0 0';diagBox.append(b,r,pre);document.body.append(diagBox);diagRefresh();}});
 function graph(){if(ctx)return;const AC=window.AudioContext||window.webkitAudioContext;if(!AC)throw Error('このブラウザでは音量フェードが利用できません');usePlaybackAudioSession();ctx=new AC();gain=ctx.createGain();mediaSource=ctx.createMediaElementSource(audio);mediaSource.connect(gain);outputGate=ctx.createGain();outputGate.gain.value=0;gain.gain.value=currentGain;gain.connect(outputGate);outputGate.connect(ctx.destination);receiverSource=ctx.createMediaElementSource(receiver);receiverGain=ctx.createGain();receiverGain.gain.value=0;receiverSource.connect(receiverGain);receiverGain.connect(ctx.destination);ctx.addEventListener('statechange',()=>{if(ctx.state!=='running'&&['playing','fadingIn','fadingOut'].includes(player.state)){report('音声処理が中断されました。画面の一時停止→再生で復帰を確認してください。',true);log('AudioContext',ctx.state);}});}
 async function timedAudio(promise,message){let timer;try{return await Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error(message)),15000);})]);}finally{clearTimeout(timer);}}
 const buffered=new BufferedTrack({context:()=>{graph();return ctx;},destination:()=>gain,asset:assetBlob,beforeStart:openOutput,log:(label,details)=>log('音声データ再生',label,details),ended:()=>{player.queue=player.queue.then(()=>{if(useBufferedAudio&&buffered.ended)player.naturalEnd();});}});
@@ -51,7 +59,7 @@ const playbackPaused=()=>useBufferedAudio?buffered.paused:audio.paused;
 async function prepareRemote(){
  if(preparing||busy||!entries.length||(!['stopped','ended','error','paused'].includes(player.state)||!!player.fade))return false;
  preparing=true;busy=true;render();let timer,failed=false;const position=playbackPosition(),level=currentGain,originalSource=audio.src;let restored=false;
- const restoreSource=async()=>{if(restored)return;generation++;audio.pause();preparationSource=false;audio.src=originalSource;audio.load();await seekAudio(position);restored=true;};
+ const restoreSource=async()=>{if(restored)return;generation++;audio.pause();preparationSource=false;if(!elementHoldsSong){audio.removeAttribute('src');audio.load();restored=true;return;}audio.src=originalSource;audio.load();await seekAudio(position);restored=true;};
  try{
   graph();closeOutput();io.gain(0);
   // Invoke all activation-sensitive APIs before the first await.
@@ -99,7 +107,7 @@ const io={
  now:()=>ctx?.currentTime??performance.now()/1000,
  gain(value){currentGain=value;if(gain){gain.gain.cancelScheduledValues(ctx.currentTime);gain.gain.value=value;gain.gain.setValueAtTime(value,ctx.currentTime);}},
  ramp(value,seconds){gain.gain.linearRampToValueAtTime(value,ctx.currentTime+seconds);},
- load(t){generation++;closeOutput();audio.pause();if(useBufferedAudio)buffered.load(t);audio.src=t.url;audio.load();},
+ load(t){generation++;closeOutput();audio.pause();if(useBufferedAudio)buffered.load(t);if(elementHoldsSong){audio.src=t.url;audio.load();}},
  pause(){closeOutput();if(useBufferedAudio)buffered.pause();if(cancelPlay){cancelPlay();cancelPlay=null;}audio.pause();},
  clear(){closeOutput();buffered.clear();audio.pause();audio.removeAttribute('src');audio.load();},
  seek:position=>useBufferedAudio?buffered.seek(position):seekAudio(position),
@@ -217,7 +225,7 @@ async function restore(){try{const restored=await loadLibrary();db=restored.db;l
 
 async function offlineSetup(){
  if(!('serviceWorker'in navigator)){report('オフライン保存が使えません。Safariで開いてください。',true);return;}
- const check=()=>{const worker=navigator.serviceWorker.controller;if(!worker)return;const channel=new MessageChannel();channel.port1.onmessage=e=>{swReady=e.data.ready&&e.data.version==='show-player-offline-v129';offlineBanner();channel.port1.close();};worker.postMessage('OFFLINE_STATUS',[channel.port2]);};
+ const check=()=>{const worker=navigator.serviceWorker.controller;if(!worker)return;const channel=new MessageChannel();channel.port1.onmessage=e=>{swReady=e.data.ready&&e.data.version==='show-player-offline-v131';offlineBanner();channel.port1.close();};worker.postMessage('OFFLINE_STATUS',[channel.port2]);};
  navigator.serviceWorker.addEventListener('controllerchange',check);check();
  try{await navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'});await navigator.serviceWorker.ready;check();}
  catch(e){if(navigator.serviceWorker.controller){check();log('オフライン','既存の保存画面を使用');}else{report('画面のオフライン保存に失敗しました。ネット接続時に開き直してください。',true);log('オフライン',e.message);}}

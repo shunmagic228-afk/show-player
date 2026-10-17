@@ -21,7 +21,7 @@ export class BufferedTrack {
  }
  async play(){
   if(this.node)return this.startedAt;
-  const attempt=++this.attempt,ctx=this.context();await ctx.resume();const buffer=await this.prepare();if(attempt!==this.attempt)throw Error('再生準備が中止されました');if(ctx.state!=='running')throw Error('音声処理を開始できません');
+  const attempt=++this.attempt,ctx=this.context(),t0=Date.now();await ctx.resume();const t1=Date.now();const buffer=await this.prepare();this.log('buffer play timing',{resumeMs:t1-t0,prepareMs:Date.now()-t1,ctx:ctx.state,baseLatency:ctx.baseLatency,outputLatency:ctx.outputLatency,sampleRate:ctx.sampleRate});if(attempt!==this.attempt)throw Error('再生準備が中止されました');if(ctx.state!=='running')throw Error('音声処理を開始できません');
   const node=ctx.createBufferSource();node.buffer=buffer;node.connect(this.destination());this.node=node;this.ended=false;this.startedAt=ctx.currentTime+.020;
   node.onended=()=>{if(this.node!==node)return;this.node=null;node.disconnect();this.offset=buffer.duration;this.ended=true;this.endedCallback();};
   try{this.beforeStart(this.startedAt);node.start(this.startedAt,this.offset);}catch(e){this.node=null;node.disconnect();throw e;}
