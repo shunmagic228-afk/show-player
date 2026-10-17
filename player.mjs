@@ -1,9 +1,9 @@
-import {chooseAudioMode} from './audio-mode.mjs?v=141';
-import {BufferedTrack,createDecodedStore} from './buffer-engine.mjs?v=141';
-import {Transport} from './transport.mjs?v=141';
-import {loadLibrary,readStore,writeLibrary} from './repository.mjs?v=141';
-import {cleanEntry,validateList,digest} from './transfer.mjs?v=141';
-import {initShare} from './share-ui.mjs?v=141';
+import {chooseAudioMode} from './audio-mode.mjs?v=142';
+import {BufferedTrack,createDecodedStore} from './buffer-engine.mjs?v=142';
+import {Transport} from './transport.mjs?v=142';
+import {loadLibrary,readStore,writeLibrary} from './repository.mjs?v=142';
+import {cleanEntry,validateList,digest} from './transfer.mjs?v=142';
+import {initShare} from './share-ui.mjs?v=142';
 const ICON_PLAY='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.86l11-6.8a1 1 0 0 0 0-1.72l-11-6.8A1 1 0 0 0 8 5.2z"/></svg>';
 const ICON_PAUSE='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="4.5" width="4.2" height="15" rx="1.2"/><rect x="13.8" y="4.5" width="4.2" height="15" rx="1.2"/></svg>';
 const ICON_GRIP='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
@@ -36,7 +36,7 @@ function report(message,error=false){$('notice').textContent=message;$('notice')
 function log(route,label,details={}){events.push({seq:++sequence,time:new Date().toISOString(),route,label,details});if(events.length>500)events.shift();const box=$('log');if(!box)return;box.replaceChildren();for(const e of events.slice(-40).reverse()){const row=document.createElement('div');row.textContent='#'+e.seq+' '+new Date(e.time).toLocaleTimeString('ja-JP')+' ['+e.route+'] '+e.label;box.append(row);}}
 let currentGain=1;
 // 診断パネル（Ctrl+Shift+D で表示/非表示）。通常は何も表示しない。反応が遅い時に、どこで時間がかかったかを見るため。
-{let last=performance.now();setInterval(()=>{const n=performance.now(),lag=n-last-250;last=n;if(lag>150)log('遅延','画面処理が止まっていた',{ms:Math.round(lag),visible:document.visibilityState});},250);}
+if(!isIOS){let last=performance.now();setInterval(()=>{const n=performance.now(),lag=n-last-250;last=n;if(lag>150)log('遅延','画面処理が止まっていた',{ms:Math.round(lag),visible:document.visibilityState});},250);}
 function diagText(){const head='SHOW PLAYER 動作記録 版'+((document.querySelector?.('script[src*="player.mjs"]')?.getAttribute('src')||'').match(/v=(\d+)/)?.[1]||'?')+' '+new Date().toISOString()+'\nUA: '+navigator.userAgent+'\nengine: '+audioMode.engine+'('+audioMode.reason+') ctx: '+(ctx?ctx.state+' sr='+ctx.sampleRate+' base='+ctx.baseLatency+' out='+ctx.outputLatency:'未作成')+' state: '+player.state+' 曲数: '+entries.length+'\n';return head+events.slice(-300).map(e=>'#'+e.seq+' '+e.time.slice(11,23)+' ['+e.route+'] '+e.label+' '+(Object.keys(e.details||{}).length?JSON.stringify(e.details):'')).join('\n');}
 // PC（iPhone以外）は動作記録を常に取り、右下の「記録」からコピーできる（反応が遅い・押せない時の原因調べ用）。
 let diagBox=null,lastLoggedState=null,lastStateAt=performance.now();
@@ -58,7 +58,7 @@ if(!isIOS&&document.body){
 }
 function graph(){if(ctx)return;const AC=window.AudioContext||window.webkitAudioContext;if(!AC)throw Error('このブラウザでは音量フェードが利用できません');usePlaybackAudioSession();ctx=new AC();gain=ctx.createGain();mediaSource=ctx.createMediaElementSource(audio);mediaSource.connect(gain);outputGate=ctx.createGain();outputGate.gain.value=0;gain.gain.value=currentGain;gain.connect(outputGate);outputGate.connect(ctx.destination);receiverSource=ctx.createMediaElementSource(receiver);receiverGain=ctx.createGain();receiverGain.gain.value=0;receiverSource.connect(receiverGain);receiverGain.connect(ctx.destination);ctx.addEventListener('statechange',()=>{if(ctx.state!=='running'&&['playing','fadingIn','fadingOut'].includes(player.state)){report('音声処理が中断されました。画面の一時停止→再生で復帰を確認してください。',true);log('AudioContext',ctx.state);}});}
 async function timedAudio(promise,message,ms=15000){let timer;try{return await Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error(message)),ms);})]);}finally{clearTimeout(timer);}}
-const buffered=new BufferedTrack({context:()=>{graph();return ctx;},destination:()=>gain,asset:assetBlob,beforeStart:openOutput,log:(label,details)=>log('音声データ再生',label,details),store:(!isIOS&&typeof indexedDB!=='undefined')?createDecodedStore():null,offlineContext:()=>new (window.OfflineAudioContext||window.webkitOfflineAudioContext)(2,1,44100),changed:()=>queueMicrotask(()=>{try{refreshMarks();}catch{}}),ended:()=>{player.queue=player.queue.then(()=>{if(useBufferedAudio&&buffered.ended)player.naturalEnd();});}});
+const buffered=new BufferedTrack({context:()=>{graph();return ctx;},destination:()=>gain,asset:assetBlob,beforeStart:openOutput,log:(label,details)=>log('音声データ再生',label,details),keepPlayed:!isIOS,store:(!isIOS&&typeof indexedDB!=='undefined')?createDecodedStore():null,offlineContext:()=>new (window.OfflineAudioContext||window.webkitOfflineAudioContext)(2,1,44100),changed:()=>queueMicrotask(()=>{try{refreshMarks();}catch{}}),ended:()=>{player.queue=player.queue.then(()=>{if(useBufferedAudio&&buffered.ended)player.naturalEnd();});}});
 // Mac (non-iPhone) only: while a song plays, decode the next/selected song in the background so a switch starts at once instead of waiting for decoding.
 let warmTimer=null;
 function warmNext(){
@@ -74,7 +74,7 @@ function convertNext(){
 // 曲ごとのチェック：グレー＝準備中、緑＝準備完了（メモリに展開済みで、いつでもすぐ再生できる）。Macのみ。
 const markState=t=>!useBufferedAudio||isIOS||!t?'':t.missing||t.preflight==='error'?'bad':buffered.isReady(t.assetId)?'ready':'pending';
 function applyMark(el,t){const st=markState(t);const text=st==='bad'?'✕':st?'✓':'';if(el.textContent!==text)el.textContent=text;const cls='ld'+(st?' '+st:'');if(el.className!==cls)el.className=cls;const label=st==='ready'?'準備完了':st==='pending'?'準備中':st==='bad'?'再生できません':'';if(el.title!==label){el.title=label;el.setAttribute('aria-label',label);}}
-function refreshMarks(){const marks=document.querySelectorAll('#trackList .ld');if(marks.length===entries.length)entries.forEach((t,i)=>applyMark(marks[i],t));const ss=$('saveStatus');if(ss){setText(ss,(stored?'端末保存済み':'未保存')+loadSummary());ss.classList.toggle('all-ready',allReady());}}
+function refreshMarks(){if(isIOS)return;const marks=document.querySelectorAll('#trackList .ld');if(marks.length===entries.length)entries.forEach((t,i)=>applyMark(marks[i],t));const ss=$('saveStatus');if(ss){setText(ss,(stored?'端末保存済み':'未保存')+loadSummary());ss.classList.toggle('all-ready',allReady());}}
 function allReady(){return useBufferedAudio&&!isIOS&&entries.length>0&&entries.every(t=>markState(t)==='ready');}
 function loadSummary(){if(!useBufferedAudio||isIOS||!entries.length)return '';const ok=entries.filter(t=>markState(t)==='ready').length;return ok===entries.length?' · 全曲 準備完了 ✓':' · 準備 '+ok+'/'+entries.length;}
 const playbackPosition=()=>useBufferedAudio?buffered.position:audio.currentTime;
@@ -145,7 +145,7 @@ function metadata(){if(!navigator.mediaSession)return;try{navigator.mediaSession
 function format(t){if(!Number.isFinite(t))return '—:—';return Math.floor(t/60)+':'+String(Math.floor(t%60)).padStart(2,'0');}
 function fadeDescription(t){return (t.switchMode==='autoAfterFade'?'クロス':'手動')+(t.fullPlay?' · 完パケ':'')+(t.repeat?' · 繰り返し':'')+' · 開始 '+(t.inMode==='fade'?t.inSeconds+'秒':'カット')+' / 終了 '+(t.outMode==='fade'?t.outSeconds+'秒':'カット');}
 // フェード状況の行：render()と100msタイマーの両方がこの関数を使う（片方が説明文に書き戻してチカチカするのを防ぐ）。
-function fadeStatusText(){if(player.fade&&player.state!=='paused'){const left=Math.max(0,player.fade.seconds-(io.now()-player.fade.start)).toFixed(1).padStart(4,'\u2007');return (player.fade.kind==='in'?'フェードイン':'フェードアウト')+' · 残り '+left+'秒';}const t=entries[player.index];return t?fadeDescription(t):'曲ごとの開始・終了方法を設定できます。';}
+function fadeStatusText(){if(player.fade&&player.state!=='paused'){const left=Math.max(0,player.fade.seconds-(io.now()-player.fade.start)).toFixed(1);const left2=isIOS?left:left.padStart(4,'\u2007');return (player.fade.kind==='in'?'フェードイン':'フェードアウト')+' · 残り '+left2+'秒';}const t=entries[player.index];return t?fadeDescription(t):'曲ごとの開始・終了方法を設定できます。';}
 function setText(el,text){if(el.textContent!==text)el.textContent=text;}
 function render(){if(player.state!==lastLoggedState){const n=performance.now();log('状態',(lastLoggedState??'—')+' → '+player.state,{afterMs:Math.round(n-lastStateAt),index:player.index+1});lastLoggedState=player.state;lastStateAt=n;}renderPreparation();const selected=entries[player.selectedIndex];$('selectionPanel').hidden=!selected;$('selectedTitle').textContent=selected?.name??'';$('activateSelected').disabled=busy||preparing||!selected;$('cancelSelected').disabled=busy||preparing;$('releaseRemote').disabled=preparing;$('go').disabled=busy||!entries.length||(!['stopped','ended','error','paused'].includes(player.state)||!!player.fade);$('go').textContent=receiverReady?'GO · 準備済み':'GO · 音を出さずに準備';$('remoteStatus').textContent=receiverReady?'リモコン準備済み · 実機で中央・左右を確認してください':'この画面を開くたび、最初にGOをクリックしてください';const t=entries[player.index];$('number').textContent=String(t?player.index+1:0).padStart(2,'0')+' / '+String(entries.length).padStart(2,'0');$('state').textContent=stateNames[player.state];$('title').textContent=t?.name??'音源を選んでください';$('nextTitle').textContent=(selected?'次に開始（準備中）：':'次の曲：')+(selected?.name??entries[player.index+1]?.name??'—（末尾）');{const nxt=selected||entries[player.index+1];$('nextMeta').textContent=nxt?fadeDescription(nxt):'';}$('central').innerHTML=['playing','fadingIn','fadingOut','starting'].includes(player.state)?ICON_PAUSE:ICON_PLAY;$('state').dataset.state=player.state;$('live').dataset.state=player.state;$('go').dataset.ready=String(!!receiverReady);$('nextHint').textContent=player.state==='waiting'||player.state==='ended'?'右：次曲を開始':player.state==='fadingOut'?'右：今すぐ次曲を開始':player.state==='stopped'?'右：選択曲を開始':t?.switchMode==='autoAfterFade'?'右：音を消して次曲へ自動切替':'右：音を消して待機';setText($('fadeStatus'),fadeStatusText());$('saveStatus').textContent=(stored?'端末保存済み':'未保存')+loadSummary();$('saveStatus').classList.toggle('all-ready',allReady());$('editorSaveStatus').textContent=stored?'✓ 設定保存済み · '+new Date(currentList()?.updatedAt??Date.now()).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}):'未保存の変更があります';$('editorSaveStatus').classList.toggle('ready',stored);$('save').textContent=busy?'保存処理中…':stored?'設定を保存する（保存済み）':'設定を保存する';for(const id of ['central','next','previous'])$(id).disabled=!entries.length||busy||entries.some(t=>t.missing||t.preflight==='error');if($('demo'))$('demo').disabled=!editable();$('audioCheck').disabled=!editable()||!entries.length;$('files').disabled=!editable();$('save').disabled=!editable();metadata();renderTracks();offlineBanner();renderLibraryControls();warmNext();convertNext();}
 function renderTracks(){
@@ -155,7 +155,7 @@ function renderTracks(){
   const row=document.createElement('button');row.type='button';row.className='track track-select'+(i===player.index?' current':'');row.disabled=busy||preparing||!!t.missing||t.preflight==='error';row.setAttribute('aria-label',String(i+1)+'曲目 '+t.name+'を選択（再生しません）');
   const num=document.createElement('span');num.className='num';num.textContent=String(i+1).padStart(2,'0');
   const text=document.createElement('span'),name=document.createElement('span'),settings=document.createElement('small');text.className='track-info';name.className='name';name.textContent=t.name;settings.textContent=fadeDescription(t)+(t.missing?' / 音源不在':'');text.append(name,settings);
-  const hint=document.createElement('span');hint.className='select-hint';hint.textContent=i===player.selectedIndex?'準備中':i===player.index?'現在曲':(i===player.index+1&&player.selectedIndex===null)?'次の曲':'準備';row.classList.toggle('queued',i===player.selectedIndex);row.classList.toggle('next-up',i===player.index+1&&player.selectedIndex===null);{const ld=document.createElement('span');applyMark(ld,t);row.append(num,text,ld,hint);}
+  const hint=document.createElement('span');hint.className='select-hint';hint.textContent=i===player.selectedIndex?'準備中':i===player.index?'現在曲':(i===player.index+1&&player.selectedIndex===null)?'次の曲':'準備';row.classList.toggle('queued',i===player.selectedIndex);row.classList.toggle('next-up',i===player.index+1&&player.selectedIndex===null);{if(useBufferedAudio&&!isIOS){const ld=document.createElement('span');applyMark(ld,t);row.append(num,text,ld,hint);}else row.append(num,text,hint);}
   row.addEventListener('click',async()=>{if(busy||preparing)return;await invoke('select','曲選択',i);if(player.selectedIndex===i)report('「'+t.name+'」を次に開始する曲へ準備しました。現在の音はそのまま続きます。');});box.append(row);
  });
 }
@@ -258,7 +258,7 @@ async function restore(){try{const restored=await loadLibrary();db=restored.db;l
 
 async function offlineSetup(){
  if(!('serviceWorker'in navigator)){report('オフライン保存が使えません。Safariで開いてください。',true);return;}
- const check=()=>{const worker=navigator.serviceWorker.controller;if(!worker)return;const channel=new MessageChannel();channel.port1.onmessage=e=>{swReady=e.data.ready&&e.data.version==='show-player-offline-v141';offlineBanner();channel.port1.close();};worker.postMessage('OFFLINE_STATUS',[channel.port2]);};
+ const check=()=>{const worker=navigator.serviceWorker.controller;if(!worker)return;const channel=new MessageChannel();channel.port1.onmessage=e=>{swReady=e.data.ready&&e.data.version==='show-player-offline-v142';offlineBanner();channel.port1.close();};worker.postMessage('OFFLINE_STATUS',[channel.port2]);};
  navigator.serviceWorker.addEventListener('controllerchange',check);check();
  try{await navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'});await navigator.serviceWorker.ready;check();}
  catch(e){if(navigator.serviceWorker.controller){check();log('オフライン','既存の保存画面を使用');}else{report('画面のオフライン保存に失敗しました。ネット接続時に開き直してください。',true);log('オフライン',e.message);}}
