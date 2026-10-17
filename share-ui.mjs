@@ -1,8 +1,8 @@
 // "プレイリスト共有" page: wires the ZIP export / import (share.mjs) to the page and to the device storage.
 // It only reads the current library, and adds a NEW playlist on import. It never touches playback.
-import {encodeAssets} from './storage.mjs?v=137';
-import {writeLibrary} from './repository.mjs?v=137';
-import {buildBundle,importBundle} from './share.mjs?v=137';
+import {encodeAssets} from './storage.mjs?v=138';
+import {writeLibrary} from './repository.mjs?v=138';
+import {buildBundle,importBundle} from './share.mjs?v=138';
 
 const idb=(db,mode,fn)=>new Promise((resolve,reject)=>{
  const tx=db.transaction('assets',mode);let value;

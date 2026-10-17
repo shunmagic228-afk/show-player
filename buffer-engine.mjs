@@ -1,6 +1,6 @@
 // Decoded-audio transport for iPhone. Cache only the active asset.
 export class BufferedTrack {
- constructor({context,destination,asset,ended=()=>{},beforeStart=()=>{},log=()=>{},changed=()=>{},budgetBytes=1.6e9,store=null,offlineContext=null}){Object.assign(this,{context,destination,asset,endedCallback:ended,beforeStart,log,changed,budgetBytes,store,offlineContext});this.storeChain=Promise.resolve();this.stored=new Set();this.storedLoaded=false;this.converting=null;this.convertQueue=[];this.track=null;this.buffer=null;this.key=null;this.pending=null;this.cache=new Map();this.inflight=new Map();this.wanted=[];this.warming=false;this.node=null;this.offset=0;this.startedAt=0;this.attempt=0;this.ended=false;}
+ constructor({context,destination,asset,ended=()=>{},beforeStart=()=>{},log=()=>{},changed=()=>{},budgetBytes=1.6e9,store=null,offlineContext=null}){Object.assign(this,{context,destination,asset,endedCallback:ended,beforeStart,log,changed,budgetBytes,store,offlineContext});this.storeChain=Promise.resolve();this.stored=new Set();this.convertJobs=new Map();this.storedLoaded=false;this.converting=null;this.convertQueue=[];this.track=null;this.buffer=null;this.key=null;this.pending=null;this.cache=new Map();this.inflight=new Map();this.wanted=[];this.warming=false;this.node=null;this.offset=0;this.startedAt=0;this.attempt=0;this.ended=false;}
  get duration(){return this.buffer?.duration??this.track?.duration??NaN;}
  get paused(){return !this.node;}
  get position(){return Math.min(this.duration||Infinity,this.offset+(this.node?Math.max(0,this.context().currentTime-this.startedAt):0));}
@@ -13,7 +13,7 @@ export class BufferedTrack {
   if(this.inflight.has(key))return this.inflight.get(key);
   const ctx=this.context();
   const job=(async()=>{const t0=Date.now();
-   if(this.store){try{const rec=await this.store.get(key);const cached=bufferFromRecord(ctx,rec);if(cached){this.stored.add(key);this.log('buffer from cache',{ms:Date.now()-t0,key,duration:cached.duration});return cached;}}catch(e){this.log('buffer cache read failed',{message:e.message});}}
+   if(this.store){try{const cj=this.convertJobs.get(key);if(cj){try{await cj;}catch{}}const rec=await this.store.get(key);const cached=bufferFromRecord(ctx,rec);if(cached){this.stored.add(key);this.log('buffer from cache',{ms:Date.now()-t0,key,duration:cached.duration});return cached;}}catch(e){this.log('buffer cache read failed',{message:e.message});}}
    const blob=await this.asset(key);const tAsset=Date.now()-t0;if(!blob)throw Error('保存音源が見つかりません');const bytes=await blob.arrayBuffer();const tRead=Date.now()-t0-tAsset;const buffer=await ctx.decodeAudioData(bytes);this.log('buffer timing',{key,assetMs:tAsset,readMs:tRead,decodeMs:Date.now()-t0-tAsset-tRead,fileBytes:bytes.byteLength});
    if(this.store&&!this.storeOff){const store=this.store;this.storeChain=this.storeChain.then(()=>store.put(key,pcmRecord(buffer))).then(()=>{this.stored.add(key);this.log('buffer cache saved',{key});},e=>{this.storeOff=true;this.log('buffer cache save failed',{message:e.message});});}
    this.log('buffer decoded',{ms:Date.now()-t0,key,duration:buffer.duration,sampleRate:buffer.sampleRate,channels:buffer.numberOfChannels,decodedBytes:buffer.length*buffer.numberOfChannels*4});return buffer;})();
@@ -27,6 +27,8 @@ export class BufferedTrack {
   this.pending=pending;const clear=()=>{if(this.pending===pending)this.pending=null;};pending.then(clear,clear);return pending;
  }
  // Decode the songs that will probably play next (in order, one at a time) so switching never waits for decoding. Keeps only these in memory besides the active one.
+ // A play() still waiting for decoding/loading gives up at once (the decoding itself continues and is reused later).
+ cancelPending(){const f=this.abortPlay;this.abortPlay=null;if(f)f();}
  bytesOf(b){return b?b.length*b.numberOfChannels*4:0;}
  usedBytes(){let n=this.bytesOf(this.buffer);for(const b of this.cache.values())n+=this.bytesOf(b);return n;}
  isStored(key){return this.stored.has(key);}
@@ -36,7 +38,7 @@ export class BufferedTrack {
  convertMany(keys){
   this.convertQueue=keys.filter(Boolean);if(this.convertRunning||!this.store||!this.offlineContext)return;this.convertRunning=true;
   (async()=>{try{await this.loadStoredKeys();for(;;){const key=this.convertQueue.find(k=>!this.stored.has(k)&&!this.convertFailed?.has(k));if(!key)break;this.converting=key;this.changed();
-   try{const t0=Date.now();const blob=await this.asset(key);if(!blob)throw Error('保存音源が見つかりません');const bytes=await blob.arrayBuffer();const tRead=Date.now()-t0;const off=this.offlineContext();const buffer=await off.decodeAudioData(bytes);const tDec=Date.now()-t0-tRead;await this.store.put(key,pcmRecord(buffer));this.stored.add(key);this.log('buffer converted',{key,readMs:tRead,decodeMs:tDec,saveMs:Date.now()-t0-tRead-tDec,duration:buffer.duration});}
+   try{const job=(async()=>{const t0=Date.now();const blob=await this.asset(key);if(!blob)throw Error('保存音源が見つかりません');const bytes=await blob.arrayBuffer();const tRead=Date.now()-t0;const off=this.offlineContext();const buffer=await off.decodeAudioData(bytes);const tDec=Date.now()-t0-tRead;await this.store.put(key,pcmRecord(buffer));this.stored.add(key);this.log('buffer converted',{key,readMs:tRead,decodeMs:tDec,saveMs:Date.now()-t0-tRead-tDec,duration:buffer.duration});})();this.convertJobs.set(key,job);try{await job;}finally{this.convertJobs.delete(key);}}
    catch(e){(this.convertFailed||(this.convertFailed=new Set())).add(key);this.log('buffer convert failed',{key,message:e.message});}
    this.converting=null;this.changed();}}finally{this.converting=null;this.convertRunning=false;this.changed();}})();
  }
@@ -55,7 +57,7 @@ export class BufferedTrack {
  }
  async play(){
   if(this.node)return this.startedAt;
-  const attempt=++this.attempt,ctx=this.context(),t0=Date.now();await ctx.resume();const t1=Date.now();const buffer=await this.prepare();this.log('buffer play timing',{resumeMs:t1-t0,prepareMs:Date.now()-t1,ctx:ctx.state,baseLatency:ctx.baseLatency,outputLatency:ctx.outputLatency,sampleRate:ctx.sampleRate});if(attempt!==this.attempt)throw Error('再生準備が中止されました');if(ctx.state!=='running')throw Error('音声処理を開始できません');
+  const attempt=++this.attempt,ctx=this.context(),t0=Date.now();await ctx.resume();const t1=Date.now();const buffer=await Promise.race([this.prepare(),new Promise((_,rej)=>{this.abortPlay=()=>{const e=Error('再生準備が中止されました');e.cancelled=true;rej(e);};})]);this.abortPlay=null;this.log('buffer play timing',{resumeMs:t1-t0,prepareMs:Date.now()-t1,ctx:ctx.state,baseLatency:ctx.baseLatency,outputLatency:ctx.outputLatency,sampleRate:ctx.sampleRate});if(attempt!==this.attempt)throw Error('再生準備が中止されました');if(ctx.state!=='running')throw Error('音声処理を開始できません');
   const node=ctx.createBufferSource();node.buffer=buffer;node.connect(this.destination());this.node=node;this.ended=false;this.startedAt=ctx.currentTime+.020;
   node.onended=()=>{if(this.node!==node)return;this.node=null;node.disconnect();this.offset=buffer.duration;this.ended=true;this.endedCallback();};
   try{this.beforeStart(this.startedAt);node.start(this.startedAt,this.offset);}catch(e){this.node=null;node.disconnect();throw e;}
