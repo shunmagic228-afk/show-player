@@ -307,5 +307,9 @@ footer{font-size:11px;font-weight:600;color:var(--faint);letter-spacing:2px;text
  .next-card{padding:8px 14px}
 }
 
-.track .ld{flex:none;font-size:11px;font-weight:700;color:var(--faint);white-space:nowrap}
+.track .ld{flex:none;min-width:1.4em;text-align:center;font-size:17px;font-weight:800;line-height:1;color:#b3bcc6;white-space:nowrap}
+.track .ld.ready{color:#1f9d55}
+.track .ld.bad{color:#c0392b}
+#saveStatus.all-ready{color:#1f9d55;font-weight:700}
 .hint p{font-variant-numeric:tabular-nums}
+html:not(.ios) .track .select-hint{min-width:3.9em;text-align:center}

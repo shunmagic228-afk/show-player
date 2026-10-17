@@ -1,6 +1,6 @@
 // Decoded-audio transport for iPhone. Cache only the active asset.
 export class BufferedTrack {
- constructor({context,destination,asset,ended=()=>{},beforeStart=()=>{},log=()=>{},changed=()=>{},budgetBytes=1.6e9,store=null,offlineContext=null}){Object.assign(this,{context,destination,asset,endedCallback:ended,beforeStart,log,changed,budgetBytes,store,offlineContext});this.storeChain=Promise.resolve();this.stored=new Set();this.convertJobs=new Map();this.storedLoaded=false;this.converting=null;this.convertQueue=[];this.track=null;this.buffer=null;this.key=null;this.pending=null;this.cache=new Map();this.inflight=new Map();this.wanted=[];this.warming=false;this.node=null;this.offset=0;this.startedAt=0;this.attempt=0;this.ended=false;}
+ constructor({context,destination,asset,ended=()=>{},beforeStart=()=>{},log=()=>{},changed=()=>{},budgetBytes=2.4e9,store=null,offlineContext=null}){Object.assign(this,{context,destination,asset,endedCallback:ended,beforeStart,log,changed,budgetBytes,store,offlineContext});this.storeChain=Promise.resolve();this.stored=new Set();this.convertJobs=new Map();this.storedLoaded=false;this.converting=null;this.convertQueue=[];this.track=null;this.buffer=null;this.key=null;this.pending=null;this.cache=new Map();this.inflight=new Map();this.wanted=[];this.warming=false;this.node=null;this.offset=0;this.startedAt=0;this.attempt=0;this.ended=false;}
  get duration(){return this.buffer?.duration??this.track?.duration??NaN;}
  get paused(){return !this.node;}
  get position(){return Math.min(this.duration||Infinity,this.offset+(this.node?Math.max(0,this.context().currentTime-this.startedAt):0));}
@@ -38,7 +38,7 @@ export class BufferedTrack {
  convertMany(keys){
   this.convertQueue=keys.filter(Boolean);if(this.convertRunning||!this.store||!this.offlineContext)return;this.convertRunning=true;
   (async()=>{try{await this.loadStoredKeys();for(;;){const key=this.convertQueue.find(k=>!this.stored.has(k)&&!this.convertFailed?.has(k));if(!key)break;this.converting=key;this.changed();
-   try{const job=(async()=>{const t0=Date.now();const blob=await this.asset(key);if(!blob)throw Error('保存音源が見つかりません');const bytes=await blob.arrayBuffer();const tRead=Date.now()-t0;const off=this.offlineContext();const buffer=await off.decodeAudioData(bytes);const tDec=Date.now()-t0-tRead;await this.store.put(key,pcmRecord(buffer));this.stored.add(key);this.log('buffer converted',{key,readMs:tRead,decodeMs:tDec,saveMs:Date.now()-t0-tRead-tDec,duration:buffer.duration});})();this.convertJobs.set(key,job);try{await job;}finally{this.convertJobs.delete(key);}}
+   try{const job=(async()=>{const t0=Date.now();const blob=await this.asset(key);if(!blob)throw Error('保存音源が見つかりません');const bytes=await blob.arrayBuffer();const tRead=Date.now()-t0;const off=this.offlineContext();const buffer=await off.decodeAudioData(bytes);const tDec=Date.now()-t0-tRead;await this.store.put(key,pcmRecord(buffer));this.stored.add(key);this.log('buffer converted',{key,readMs:tRead,decodeMs:tDec,saveMs:Date.now()-t0-tRead-tDec,duration:buffer.duration});if(this.wantedAll)this.warmMany(this.wantedAll);})();this.convertJobs.set(key,job);try{await job;}finally{this.convertJobs.delete(key);}}
    catch(e){(this.convertFailed||(this.convertFailed=new Set())).add(key);this.log('buffer convert failed',{key,message:e.message});}
    this.converting=null;this.changed();}}finally{this.converting=null;this.convertRunning=false;this.changed();}})();
  }
@@ -46,12 +46,13 @@ export class BufferedTrack {
  isLoading(key){return this.inflight.has(key);}
  // Decode songs ahead, in the given priority order, one at a time, within a memory budget. Decoded songs stay available (also songs already played) so any jump is instant.
  warmMany(keys){
-  this.wanted=keys.filter(k=>k&&k!==this.key);
+  this.wantedAll=keys;this.wanted=keys.filter(k=>k&&k!==this.key);
   let used=this.bytesOf(this.buffer);
   for(const k of [...this.cache.keys()]){if(!this.wanted.includes(k))this.cache.delete(k);}
   for(const k of this.wanted){if(!this.cache.has(k))continue;used+=this.bytesOf(this.cache.get(k));if(used>this.budgetBytes)this.cache.delete(k);}
   if(this.warming)return;this.warming=true;const done=new Set();
-  (async()=>{try{for(;;){const key=this.wanted.find(k=>!this.cache.has(k)&&!done.has(k));if(!key||this.usedBytes()>=this.budgetBytes)break;done.add(key);
+  (async()=>{try{await this.loadStoredKeys();for(;;){const ck=this.key;if(this.track&&ck&&!this.buffer&&!this.pending&&!done.has('cur:'+ck)&&(this.stored.has(ck)||!this.store||this.convertFailed?.has(ck))){done.add('cur:'+ck);try{await this.prepare();this.changed();}catch{}}
+   const key=this.wanted.find(k=>!this.cache.has(k)&&!done.has(k)&&(this.stored.has(k)||!this.store||this.convertFailed?.has(k)));if(!key||this.usedBytes()>=this.budgetBytes)break;done.add(key);
    try{const buffer=await this.decodeKey(key);if(this.wanted.includes(key)&&this.key!==key&&this.usedBytes()<this.budgetBytes*1.2)this.cache.set(key,buffer);}catch(e){this.log('buffer warm failed',{message:e.message});}
    this.changed();}}finally{this.warming=false;this.changed();}})();
  }
