@@ -1,23 +1,35 @@
 // Decoded-audio transport for iPhone. Cache only the active asset.
 export class BufferedTrack {
- constructor({context,destination,asset,ended=()=>{},beforeStart=()=>{},log=()=>{}}){Object.assign(this,{context,destination,asset,endedCallback:ended,beforeStart,log});this.track=null;this.buffer=null;this.key=null;this.pending=null;this.warmKey=null;this.warmBuffer=null;this.warmPending=null;this.node=null;this.offset=0;this.startedAt=0;this.attempt=0;this.ended=false;}
+ constructor({context,destination,asset,ended=()=>{},beforeStart=()=>{},log=()=>{}}){Object.assign(this,{context,destination,asset,endedCallback:ended,beforeStart,log});this.track=null;this.buffer=null;this.key=null;this.pending=null;this.cache=new Map();this.inflight=new Map();this.wanted=[];this.warming=false;this.node=null;this.offset=0;this.startedAt=0;this.attempt=0;this.ended=false;}
  get duration(){return this.buffer?.duration??this.track?.duration??NaN;}
  get paused(){return !this.node;}
  get position(){return Math.min(this.duration||Infinity,this.offset+(this.node?Math.max(0,this.context().currentTime-this.startedAt):0));}
  pause(){const position=this.position;this.attempt++;const node=this.node;this.node=null;this.offset=Number.isFinite(position)?position:0;if(node){node.onended=null;try{node.stop();}catch{}node.disconnect();}this.log('buffer pause',{position:this.offset});}
- clear(){this.pause();this.track=null;this.buffer=null;this.pending=null;this.key=null;this.warmKey=null;this.warmBuffer=null;this.warmPending=null;this.offset=0;this.ended=false;}
- load(track){this.pause();if(this.key!==track.assetId){this.buffer=null;this.pending=null;this.key=track.assetId;if(this.warmKey===track.assetId){if(this.warmBuffer){this.buffer=this.warmBuffer;this.log('buffer warm hit',{key:track.assetId});}this.warmKey=null;this.warmBuffer=null;this.warmPending=null;}}this.track=track;this.offset=0;this.ended=false;}
+ clear(){this.pause();this.track=null;this.buffer=null;this.pending=null;this.key=null;this.cache.clear();this.wanted=[];this.offset=0;this.ended=false;}
+ load(track){this.pause();if(this.key!==track.assetId){this.buffer=null;this.pending=null;this.key=track.assetId;if(this.cache.has(track.assetId)){this.buffer=this.cache.get(track.assetId);this.cache.delete(track.assetId);this.log('buffer warm hit',{key:track.assetId});}}this.track=track;this.offset=0;this.ended=false;}
  seek(position){this.pause();this.offset=Math.max(0,Math.min(position,Number.isFinite(this.duration)?Math.max(0,this.duration-.001):position));this.ended=false;}
+ // One shared decode per asset (a warm-up in progress is reused, never repeated).
+ decodeKey(key){
+  if(this.inflight.has(key))return this.inflight.get(key);
+  const ctx=this.context();
+  const job=(async()=>{const t0=Date.now();const blob=await this.asset(key);if(!blob)throw Error('保存音源が見つかりません');const buffer=await ctx.decodeAudioData(await blob.arrayBuffer());this.log('buffer decoded',{ms:Date.now()-t0,key,duration:buffer.duration,sampleRate:buffer.sampleRate,channels:buffer.numberOfChannels,decodedBytes:buffer.length*buffer.numberOfChannels*4});return buffer;})();
+  this.inflight.set(key,job);const done=()=>{if(this.inflight.get(key)===job)this.inflight.delete(key);};job.then(done,done);return job;
+ }
  async prepare(){
   if(!this.track)throw Error('音源を選択してください');if(this.buffer)return this.buffer;if(this.pending)return this.pending;
-  const key=this.key,ctx=this.context();
-  this.pending=(async()=>{try{const t0=Date.now();const blob=await this.asset(key);if(!blob)throw Error('保存音源が見つかりません');const bytes=await blob.arrayBuffer();const buffer=await ctx.decodeAudioData(bytes);if(this.key!==key)throw Error('音源が変更されました');this.buffer=buffer;this.log('buffer decoded',{ms:Date.now()-t0,duration:buffer.duration,sampleRate:buffer.sampleRate,channels:buffer.numberOfChannels,decodedBytes:buffer.length*buffer.numberOfChannels*4});return buffer;}finally{if(this.key===key)this.pending=null;}})();return this.pending;
+  const key=this.key;
+  if(this.cache.has(key)){this.buffer=this.cache.get(key);this.cache.delete(key);return this.buffer;}
+  const pending=this.decodeKey(key).then(buffer=>{if(this.key!==key)throw Error('音源が変更されました');this.buffer=buffer;return buffer;});
+  this.pending=pending;const clear=()=>{if(this.pending===pending)this.pending=null;};pending.then(clear,clear);return pending;
  }
- // Decode a following track ahead of time (one slot) so the switch does not wait for decoding. Optional; never throws.
- warm(assetId){
-  if(!assetId||assetId===this.key||assetId===this.warmKey||!this.track)return;
-  const token={},ctx=this.context();this.warmKey=assetId;this.warmBuffer=null;this.warmPending=token;
-  return (async()=>{try{const t0=Date.now();const blob=await this.asset(assetId);if(!blob)throw Error('保存音源が見つかりません');const buffer=await ctx.decodeAudioData(await blob.arrayBuffer());if(this.warmPending===token){this.warmBuffer=buffer;this.log('buffer warmed',{ms:Date.now()-t0,key:assetId,duration:buffer.duration});}}catch(e){if(this.warmPending===token){this.warmKey=null;this.warmBuffer=null;}this.log('buffer warm failed',{message:e.message});}finally{if(this.warmPending===token)this.warmPending=null;}})();
+ // Decode the songs that will probably play next (in order, one at a time) so switching never waits for decoding. Keeps only these in memory besides the active one.
+ warmMany(keys){
+  this.wanted=keys.filter(k=>k&&k!==this.key);
+  for(const k of [...this.cache.keys()])if(!this.wanted.includes(k))this.cache.delete(k);
+  if(this.warming)return;this.warming=true;
+  (async()=>{try{for(;;){const key=this.wanted.find(k=>!this.cache.has(k));if(!key)break;
+   try{const buffer=await this.decodeKey(key);if(this.wanted.includes(key)&&this.key!==key)this.cache.set(key,buffer);}catch(e){this.log('buffer warm failed',{message:e.message});}
+   this.wanted=this.wanted.filter(k=>k!==key);}}finally{this.warming=false;}})();
  }
  async play(){
   if(this.node)return this.startedAt;

@@ -1,9 +1,9 @@
-import {chooseAudioMode} from './audio-mode.mjs?v=133';
-import {BufferedTrack} from './buffer-engine.mjs?v=133';
-import {Transport} from './transport.mjs?v=133';
-import {loadLibrary,readStore,writeLibrary} from './repository.mjs?v=133';
-import {cleanEntry,validateList,digest} from './transfer.mjs?v=133';
-import {initShare} from './share-ui.mjs?v=133';
+import {chooseAudioMode} from './audio-mode.mjs?v=134';
+import {BufferedTrack} from './buffer-engine.mjs?v=134';
+import {Transport} from './transport.mjs?v=134';
+import {loadLibrary,readStore,writeLibrary} from './repository.mjs?v=134';
+import {cleanEntry,validateList,digest} from './transfer.mjs?v=134';
+import {initShare} from './share-ui.mjs?v=134';
 const ICON_PLAY='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.86l11-6.8a1 1 0 0 0 0-1.72l-11-6.8A1 1 0 0 0 8 5.2z"/></svg>';
 const ICON_PAUSE='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="4.5" width="4.2" height="15" rx="1.2"/><rect x="13.8" y="4.5" width="4.2" height="15" rx="1.2"/></svg>';
 const ICON_GRIP='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
@@ -57,13 +57,13 @@ if(!isIOS&&document.body){
  window.addEventListener('error',e=>log('JSエラー',e.message||'error',{line:e.lineno}));window.addEventListener('unhandledrejection',e=>log('JS未処理エラー',String(e.reason?.message||e.reason)));
 }
 function graph(){if(ctx)return;const AC=window.AudioContext||window.webkitAudioContext;if(!AC)throw Error('このブラウザでは音量フェードが利用できません');usePlaybackAudioSession();ctx=new AC();gain=ctx.createGain();mediaSource=ctx.createMediaElementSource(audio);mediaSource.connect(gain);outputGate=ctx.createGain();outputGate.gain.value=0;gain.gain.value=currentGain;gain.connect(outputGate);outputGate.connect(ctx.destination);receiverSource=ctx.createMediaElementSource(receiver);receiverGain=ctx.createGain();receiverGain.gain.value=0;receiverSource.connect(receiverGain);receiverGain.connect(ctx.destination);ctx.addEventListener('statechange',()=>{if(ctx.state!=='running'&&['playing','fadingIn','fadingOut'].includes(player.state)){report('音声処理が中断されました。画面の一時停止→再生で復帰を確認してください。',true);log('AudioContext',ctx.state);}});}
-async function timedAudio(promise,message){let timer;try{return await Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error(message)),15000);})]);}finally{clearTimeout(timer);}}
+async function timedAudio(promise,message,ms=15000){let timer;try{return await Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error(message)),ms);})]);}finally{clearTimeout(timer);}}
 const buffered=new BufferedTrack({context:()=>{graph();return ctx;},destination:()=>gain,asset:assetBlob,beforeStart:openOutput,log:(label,details)=>log('音声データ再生',label,details),ended:()=>{player.queue=player.queue.then(()=>{if(useBufferedAudio&&buffered.ended)player.naturalEnd();});}});
 // Mac (non-iPhone) only: while a song plays, decode the next/selected song in the background so a switch starts at once instead of waiting for decoding.
 let warmTimer=null;
 function warmNext(){
- if(!useBufferedAudio||isIOS||warmTimer||!['playing','fadingIn','fadingOut'].includes(player.state))return;
- warmTimer=setTimeout(()=>{warmTimer=null;try{if(!['playing','fadingIn','fadingOut'].includes(player.state))return;const t=entries[player.selectedIndex??player.index+1];if(t&&!t.missing&&t.assetId!==entries[player.index]?.assetId)void buffered.warm(t.assetId);}catch(e){log('先読み',e.message);}},1200);
+ if(!useBufferedAudio||isIOS||warmTimer||player.state==='starting'||player.state==='empty'||player.state==='error'||!(receiverReady||running(player.state)))return;
+ warmTimer=setTimeout(()=>{warmTimer=null;try{if(player.state==='starting')return;const keys=[];const add=t=>{if(t&&!t.missing&&t.preflight!=='error'&&!keys.includes(t.assetId))keys.push(t.assetId);};if(player.selectedIndex!==null)add(entries[player.selectedIndex]);for(let i=1;i<=3;i++)add(entries[player.index+i]);buffered.warmMany(keys);}catch(e){log('先読み',e.message);}},1200);
 }
 const playbackPosition=()=>useBufferedAudio?buffered.position:audio.currentTime;
 const playbackDuration=()=>useBufferedAudio?buffered.duration:audio.duration;
@@ -86,7 +86,7 @@ async function prepareRemote(){
   const started=Promise.all([resume,carrier,prime]);
   await Promise.race([started,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('準備が始まりません。出力先と音源を確認してください')),10000);})]);
   if(failed)throw Error('準備を中止しました');
-  audio.pause();await restoreSource();if(useBufferedAudio){report('現在曲を再生用に準備しています…');await timedAudio(buffered.prepare(),'音声データの準備が完了しません。音源と出力先を確認してください');}io.gain(level);
+  audio.pause();await restoreSource();if(useBufferedAudio){report('現在曲を再生用に準備しています…');await timedAudio(buffered.prepare(),'音声データの準備が完了しません。音源と出力先を確認してください',120000);}io.gain(level);
   if(ctx.state!=='running'||receiver.paused)throw Error('音声処理を準備できませんでした');
   receiverReady=true;metadata();report('GO準備完了。音はまだ鳴りません。中央で選択曲を開始できます。');
   log('GO','無音ファイルだけでリモコンを準備',{context:ctx.state,restoredPosition:audio.currentTime});return true;
@@ -126,7 +126,7 @@ const io={
  pause(){closeOutput();if(useBufferedAudio)buffered.pause();if(cancelPlay){cancelPlay();cancelPlay=null;}audio.pause();},
  clear(){closeOutput();buffered.clear();audio.pause();audio.removeAttribute('src');audio.load();},
  seek:position=>useBufferedAudio?buffered.seek(position):seekAudio(position),
- async play(){graph();closeOutput();io.gain(currentGain);if(useBufferedAudio){try{await timedAudio(buffered.play(),'音声データの再生準備が完了しません');return;}catch(e){buffered.pause();closeOutput();log('再生エラー',e.name,{message:e.message,engine:'buffer'});throw e;}}log('再生要求','audio.play',{context:ctx.state,receiverReady});const attempt=++playAttempt,g=generation;let aborted=false,timer;const resume=ctx.resume();const play=audio.play();const abort=new Promise((_,reject)=>{cancelPlay=()=>{aborted=true;reject(Error('再生準備を中止しました'));};timer=setTimeout(()=>{aborted=true;reject(Error('再生が始まりません。音源と出力先を確認してください'));},10000);});try{await Promise.race([Promise.all([resume,play]),abort]);if(ctx.state!=='running')throw Error('音声処理を開始できません。画面から再生し直してください');openOutput();}catch(e){closeOutput();log('再生エラー',e.name,{message:e.message,position:audio.currentTime});throw e;}finally{clearTimeout(timer);cancelPlay=null;if(aborted){closeOutput();audio.pause();play.then(()=>{if(attempt===playAttempt&&g===generation)audio.pause();},()=>{});}}}
+ async play(){graph();closeOutput();io.gain(currentGain);if(useBufferedAudio){try{await timedAudio(buffered.play(),'音声データの再生準備が完了しません',120000);return;}catch(e){buffered.pause();closeOutput();log('再生エラー',e.name,{message:e.message,engine:'buffer'});throw e;}}log('再生要求','audio.play',{context:ctx.state,receiverReady});const attempt=++playAttempt,g=generation;let aborted=false,timer;const resume=ctx.resume();const play=audio.play();const abort=new Promise((_,reject)=>{cancelPlay=()=>{aborted=true;reject(Error('再生準備を中止しました'));};timer=setTimeout(()=>{aborted=true;reject(Error('再生が始まりません。音源と出力先を確認してください'));},10000);});try{await Promise.race([Promise.all([resume,play]),abort]);if(ctx.state!=='running')throw Error('音声処理を開始できません。画面から再生し直してください');openOutput();}catch(e){closeOutput();log('再生エラー',e.name,{message:e.message,position:audio.currentTime});throw e;}finally{clearTimeout(timer);cancelPlay=null;if(aborted){closeOutput();audio.pause();play.then(()=>{if(attempt===playAttempt&&g===generation)audio.pause();},()=>{});}}}
 };
 const player=new Transport(io,render,message=>report(message));
 function metadata(){if(!navigator.mediaSession)return;try{navigator.mediaSession.metadata=entries[player.index]?new MediaMetadata({title:entries[player.index].name,artist:'SHOW PLAYER'}):null;navigator.mediaSession.playbackState=['playing','fadingIn','fadingOut'].includes(player.state)?'playing':player.state==='empty'?'none':'paused';}catch(e){log('OS状態',e.message);}}
@@ -240,7 +240,7 @@ async function restore(){try{const restored=await loadLibrary();db=restored.db;l
 
 async function offlineSetup(){
  if(!('serviceWorker'in navigator)){report('オフライン保存が使えません。Safariで開いてください。',true);return;}
- const check=()=>{const worker=navigator.serviceWorker.controller;if(!worker)return;const channel=new MessageChannel();channel.port1.onmessage=e=>{swReady=e.data.ready&&e.data.version==='show-player-offline-v133';offlineBanner();channel.port1.close();};worker.postMessage('OFFLINE_STATUS',[channel.port2]);};
+ const check=()=>{const worker=navigator.serviceWorker.controller;if(!worker)return;const channel=new MessageChannel();channel.port1.onmessage=e=>{swReady=e.data.ready&&e.data.version==='show-player-offline-v134';offlineBanner();channel.port1.close();};worker.postMessage('OFFLINE_STATUS',[channel.port2]);};
  navigator.serviceWorker.addEventListener('controllerchange',check);check();
  try{await navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'});await navigator.serviceWorker.ready;check();}
  catch(e){if(navigator.serviceWorker.controller){check();log('オフライン','既存の保存画面を使用');}else{report('画面のオフライン保存に失敗しました。ネット接続時に開き直してください。',true);log('オフライン',e.message);}}
