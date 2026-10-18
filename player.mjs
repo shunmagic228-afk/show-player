@@ -1,9 +1,9 @@
-import {chooseAudioMode} from './audio-mode.mjs?v=144';
-import {BufferedTrack,createDecodedStore} from './buffer-engine.mjs?v=144';
-import {Transport} from './transport.mjs?v=144';
-import {loadLibrary,readStore,writeLibrary} from './repository.mjs?v=144';
-import {cleanEntry,validateList,digest} from './transfer.mjs?v=144';
-import {initShare} from './share-ui.mjs?v=144';
+import {chooseAudioMode} from './audio-mode.mjs?v=145';
+import {BufferedTrack,createDecodedStore} from './buffer-engine.mjs?v=145';
+import {Transport} from './transport.mjs?v=145';
+import {loadLibrary,readStore,writeLibrary} from './repository.mjs?v=145';
+import {cleanEntry,validateList,digest} from './transfer.mjs?v=145';
+import {initShare} from './share-ui.mjs?v=145';
 const ICON_PLAY='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.86l11-6.8a1 1 0 0 0 0-1.72l-11-6.8A1 1 0 0 0 8 5.2z"/></svg>';
 const ICON_PAUSE='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="4.5" width="4.2" height="15" rx="1.2"/><rect x="13.8" y="4.5" width="4.2" height="15" rx="1.2"/></svg>';
 const ICON_GRIP='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
@@ -56,21 +56,27 @@ if(!isIOS&&document.body){
  document.addEventListener('keydown',e=>{if(wrap.contains(e.target)||['Shift','Control','Alt','Meta'].includes(e.key))return;log('キー',e.key,{state:player.state});},{capture:true,passive:true});
  window.addEventListener('error',e=>log('JSエラー',e.message||'error',{line:e.lineno}));window.addEventListener('unhandledrejection',e=>log('JS未処理エラー',String(e.reason?.message||e.reason)));
 }
-function graph(){if(ctx)return;const AC=window.AudioContext||window.webkitAudioContext;if(!AC)throw Error('このブラウザでは音量フェードが利用できません');usePlaybackAudioSession();ctx=new AC();gain=ctx.createGain();mediaSource=ctx.createMediaElementSource(audio);mediaSource.connect(gain);outputGate=ctx.createGain();outputGate.gain.value=0;gain.gain.value=currentGain;gain.connect(outputGate);outputGate.connect(ctx.destination);receiverSource=ctx.createMediaElementSource(receiver);receiverGain=ctx.createGain();receiverGain.gain.value=0;receiverSource.connect(receiverGain);receiverGain.connect(ctx.destination);ctx.addEventListener('statechange',()=>{log('AudioContext',ctx.state,{sampleRate:ctx.sampleRate,baseLatency:ctx.baseLatency,outputLatency:ctx.outputLatency,player:player.state});if(ctx.state!=='running'&&['playing','fadingIn','fadingOut'].includes(player.state)){if(isIOS){report('音声処理が中断されました。画面の一時停止→再生で復帰を確認してください。',true);log('AudioContext',ctx.state);}else void recoverContext();}});}
+function graph(){if(ctx)return;const AC=window.AudioContext||window.webkitAudioContext;if(!AC)throw Error('このブラウザでは音量フェードが利用できません');usePlaybackAudioSession();ctx=new AC();gain=ctx.createGain();mediaSource=ctx.createMediaElementSource(audio);mediaSource.connect(gain);outputGate=ctx.createGain();outputGate.gain.value=0;gain.gain.value=currentGain;gain.connect(outputGate);outputGate.connect(ctx.destination);receiverSource=ctx.createMediaElementSource(receiver);receiverGain=ctx.createGain();receiverGain.gain.value=0;receiverSource.connect(receiverGain);receiverGain.connect(ctx.destination);ctx.addEventListener('statechange',()=>{log('AudioContext',ctx.state,{sampleRate:ctx.sampleRate,outputLatency:ctx.outputLatency,player:player.state,receiverPaused:receiver.paused,receiverReady,mediaSession:navigator.mediaSession?.playbackState,focus:document.hasFocus(),visible:document.visibilityState});if(ctx.state!=='running'&&['playing','fadingIn','fadingOut'].includes(player.state)){if(isIOS){report('音声処理が中断されました。画面の一時停止→再生で復帰を確認してください。',true);log('AudioContext',ctx.state);}else void recoverContext();}});}
 // Mac only: when macOS/Safari suspends the audio engine during playback (output device change, system interruption), the song goes silent while the screen still says "playing".
 // Resume it automatically (the position and fades continue exactly, because they follow the audio clock). If the browser refuses, the next click anywhere retries.
-let recovering=false;
+let recovering=false;const recoverEpisode={n:0,last:0,warned:false};
+const sleepMs=ms=>new Promise(r=>setTimeout(r,ms));
 async function recoverContext(){
- if(recovering||!ctx)return;recovering=true;
+ if(recovering||!ctx)return;
+ const now=Date.now();if(now-recoverEpisode.last>10000){recoverEpisode.n=0;recoverEpisode.warned=false;}recoverEpisode.last=now;recoverEpisode.n++;
+ // Another app (e.g. Music) or a device change can keep interrupting the audio engine. Retry with growing pauses and give up after a few tries instead of fighting it (no endless flicker).
+ if(recoverEpisode.n>5){if(!recoverEpisode.warned){recoverEpisode.warned=true;report('音声処理が何度も中断されます。ミュージック等の他のアプリが音声やリモコンを使っていないか、出力先を確認してください。',true);}log('自動復帰','頻繁な中断のため自動復帰を一時停止',{n:recoverEpisode.n});return;}
+ recovering=true;
  try{
-  report('音声処理が中断されました。自動で復帰しています…',true);
-  for(let i=0;i<20&&ctx.state!=='running'&&ctx.state!=='closed'&&['playing','fadingIn','fadingOut'].includes(player.state);i++){
+  if(recoverEpisode.n===1)report('音声処理が中断されました。自動で復帰しています…',true);
+  if(recoverEpisode.n>1)await sleepMs(Math.min(3000,400*2**(recoverEpisode.n-2)));
+  for(let i=0;i<6&&ctx.state!=='running'&&ctx.state!=='closed'&&['playing','fadingIn','fadingOut'].includes(player.state);i++){
    try{await ctx.resume();}catch(e){log('自動復帰','resume失敗',{message:e.message,try:i+1});}
-   if(ctx.state==='running')break;await new Promise(r=>setTimeout(r,400));
+   if(ctx.state==='running')break;await sleepMs(500);
   }
-  if(ctx.state==='running')report('音声処理が一時中断しましたが、自動で復帰しました。');
-  else if(['playing','fadingIn','fadingOut'].includes(player.state))report('音声処理が中断したままです。画面のどこかをクリックするか、一時停止→再生を押してください。',true);
-  log('自動復帰',ctx.state,{player:player.state});
+  if(ctx.state==='running'){if(recoverEpisode.n===1)report('音声処理が一時中断しましたが、自動で復帰しました。');}
+  else if(['playing','fadingIn','fadingOut'].includes(player.state)&&!recoverEpisode.warned){recoverEpisode.warned=true;report('音声処理が中断したままです。画面のどこかをクリックするか、一時停止→再生を押してください。',true);}
+  log('自動復帰',ctx.state,{player:player.state,n:recoverEpisode.n});
  }finally{recovering=false;}
 }
 if(!isIOS){
@@ -137,6 +143,7 @@ async function prepareRemote(){
 $('go').addEventListener('click',()=>{void prepareRemote();});
 $('releaseRemote').addEventListener('click',()=>{receiverReady=false;receiver.pause();void invoke('stop');render();report('リモコン準備を解除しました。再開時はGOを押してください。');});
 receiver.addEventListener('pause',()=>{if(receiverReady){receiverReady=false;render();report('リモコン用の音声処理が停止しました。停止してGOを押し直してください。',true);}});
+for(const event of ['play','pause','ended','error','stalled','waiting'])receiver.addEventListener(event,()=>log('リモコン用音声',event,{paused:receiver.paused,ctx:ctx?.state,receiverReady,mediaSession:navigator.mediaSession?.playbackState}));
 for(const event of ['play','pause','ended','error'])audio.addEventListener(event,()=>log('音声イベント',event,{context:ctx?.state,paused:audio.paused,position:audio.currentTime,sourceRole:preparationSource?'silence':'show',fadeGain:currentGain,outputGain:outputGate?.gain.value,error:audio.error?.code}));
 // Separate safety gate from per-track fade gain. No decoding, seek or GO
 // priming may reach the output; opening has a short anti-click envelope.
@@ -287,7 +294,7 @@ async function restore(){try{const restored=await loadLibrary();db=restored.db;l
 
 async function offlineSetup(){
  if(!('serviceWorker'in navigator)){report('オフライン保存が使えません。Safariで開いてください。',true);return;}
- const check=()=>{const worker=navigator.serviceWorker.controller;if(!worker)return;const channel=new MessageChannel();channel.port1.onmessage=e=>{swReady=e.data.ready&&e.data.version==='show-player-offline-v144';offlineBanner();channel.port1.close();};worker.postMessage('OFFLINE_STATUS',[channel.port2]);};
+ const check=()=>{const worker=navigator.serviceWorker.controller;if(!worker)return;const channel=new MessageChannel();channel.port1.onmessage=e=>{swReady=e.data.ready&&e.data.version==='show-player-offline-v145';offlineBanner();channel.port1.close();};worker.postMessage('OFFLINE_STATUS',[channel.port2]);};
  navigator.serviceWorker.addEventListener('controllerchange',check);check();
  try{await navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'});await navigator.serviceWorker.ready;check();}
  catch(e){if(navigator.serviceWorker.controller){check();log('オフライン','既存の保存画面を使用');}else{report('画面のオフライン保存に失敗しました。ネット接続時に開き直してください。',true);log('オフライン',e.message);}}
