@@ -1,9 +1,9 @@
-import {chooseAudioMode} from './audio-mode.mjs?v=143';
-import {BufferedTrack,createDecodedStore} from './buffer-engine.mjs?v=143';
-import {Transport} from './transport.mjs?v=143';
-import {loadLibrary,readStore,writeLibrary} from './repository.mjs?v=143';
-import {cleanEntry,validateList,digest} from './transfer.mjs?v=143';
-import {initShare} from './share-ui.mjs?v=143';
+import {chooseAudioMode} from './audio-mode.mjs?v=144';
+import {BufferedTrack,createDecodedStore} from './buffer-engine.mjs?v=144';
+import {Transport} from './transport.mjs?v=144';
+import {loadLibrary,readStore,writeLibrary} from './repository.mjs?v=144';
+import {cleanEntry,validateList,digest} from './transfer.mjs?v=144';
+import {initShare} from './share-ui.mjs?v=144';
 const ICON_PLAY='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.86l11-6.8a1 1 0 0 0 0-1.72l-11-6.8A1 1 0 0 0 8 5.2z"/></svg>';
 const ICON_PAUSE='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="4.5" width="4.2" height="15" rx="1.2"/><rect x="13.8" y="4.5" width="4.2" height="15" rx="1.2"/></svg>';
 const ICON_GRIP='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
@@ -56,7 +56,29 @@ if(!isIOS&&document.body){
  document.addEventListener('keydown',e=>{if(wrap.contains(e.target)||['Shift','Control','Alt','Meta'].includes(e.key))return;log('キー',e.key,{state:player.state});},{capture:true,passive:true});
  window.addEventListener('error',e=>log('JSエラー',e.message||'error',{line:e.lineno}));window.addEventListener('unhandledrejection',e=>log('JS未処理エラー',String(e.reason?.message||e.reason)));
 }
-function graph(){if(ctx)return;const AC=window.AudioContext||window.webkitAudioContext;if(!AC)throw Error('このブラウザでは音量フェードが利用できません');usePlaybackAudioSession();ctx=new AC();gain=ctx.createGain();mediaSource=ctx.createMediaElementSource(audio);mediaSource.connect(gain);outputGate=ctx.createGain();outputGate.gain.value=0;gain.gain.value=currentGain;gain.connect(outputGate);outputGate.connect(ctx.destination);receiverSource=ctx.createMediaElementSource(receiver);receiverGain=ctx.createGain();receiverGain.gain.value=0;receiverSource.connect(receiverGain);receiverGain.connect(ctx.destination);ctx.addEventListener('statechange',()=>{if(ctx.state!=='running'&&['playing','fadingIn','fadingOut'].includes(player.state)){report('音声処理が中断されました。画面の一時停止→再生で復帰を確認してください。',true);log('AudioContext',ctx.state);}});}
+function graph(){if(ctx)return;const AC=window.AudioContext||window.webkitAudioContext;if(!AC)throw Error('このブラウザでは音量フェードが利用できません');usePlaybackAudioSession();ctx=new AC();gain=ctx.createGain();mediaSource=ctx.createMediaElementSource(audio);mediaSource.connect(gain);outputGate=ctx.createGain();outputGate.gain.value=0;gain.gain.value=currentGain;gain.connect(outputGate);outputGate.connect(ctx.destination);receiverSource=ctx.createMediaElementSource(receiver);receiverGain=ctx.createGain();receiverGain.gain.value=0;receiverSource.connect(receiverGain);receiverGain.connect(ctx.destination);ctx.addEventListener('statechange',()=>{log('AudioContext',ctx.state,{sampleRate:ctx.sampleRate,baseLatency:ctx.baseLatency,outputLatency:ctx.outputLatency,player:player.state});if(ctx.state!=='running'&&['playing','fadingIn','fadingOut'].includes(player.state)){if(isIOS){report('音声処理が中断されました。画面の一時停止→再生で復帰を確認してください。',true);log('AudioContext',ctx.state);}else void recoverContext();}});}
+// Mac only: when macOS/Safari suspends the audio engine during playback (output device change, system interruption), the song goes silent while the screen still says "playing".
+// Resume it automatically (the position and fades continue exactly, because they follow the audio clock). If the browser refuses, the next click anywhere retries.
+let recovering=false;
+async function recoverContext(){
+ if(recovering||!ctx)return;recovering=true;
+ try{
+  report('音声処理が中断されました。自動で復帰しています…',true);
+  for(let i=0;i<20&&ctx.state!=='running'&&ctx.state!=='closed'&&['playing','fadingIn','fadingOut'].includes(player.state);i++){
+   try{await ctx.resume();}catch(e){log('自動復帰','resume失敗',{message:e.message,try:i+1});}
+   if(ctx.state==='running')break;await new Promise(r=>setTimeout(r,400));
+  }
+  if(ctx.state==='running')report('音声処理が一時中断しましたが、自動で復帰しました。');
+  else if(['playing','fadingIn','fadingOut'].includes(player.state))report('音声処理が中断したままです。画面のどこかをクリックするか、一時停止→再生を押してください。',true);
+  log('自動復帰',ctx.state,{player:player.state});
+ }finally{recovering=false;}
+}
+if(!isIOS){
+ const retry=()=>{if(ctx&&ctx.state!=='running'&&ctx.state!=='closed'&&['playing','fadingIn','fadingOut'].includes(player.state)){log('自動復帰','操作をきっかけに再試行',{state:ctx.state});void recoverContext();}};
+ document.addEventListener('pointerdown',retry,{capture:true,passive:true});document.addEventListener('keydown',retry,{capture:true,passive:true});
+ document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')retry();});window.addEventListener('focus',retry);
+ try{navigator.mediaDevices?.addEventListener?.('devicechange',()=>log('出力先','音声デバイスが変わりました',{ctx:ctx?.state,sampleRate:ctx?.sampleRate}));}catch{}
+}
 async function timedAudio(promise,message,ms=15000){let timer;try{return await Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error(message)),ms);})]);}finally{clearTimeout(timer);}}
 const buffered=new BufferedTrack({context:()=>{graph();return ctx;},destination:()=>gain,asset:assetBlob,beforeStart:openOutput,log:(label,details)=>log('音声データ再生',label,details),keepPlayed:!isIOS,store:(!isIOS&&typeof indexedDB!=='undefined')?createDecodedStore():null,offlineContext:()=>new (window.OfflineAudioContext||window.webkitOfflineAudioContext)(2,1,44100),changed:()=>queueMicrotask(()=>{try{refreshMarks();}catch{}}),ended:()=>{player.queue=player.queue.then(()=>{if(useBufferedAudio&&buffered.ended)player.naturalEnd();});}});
 // Mac (non-iPhone) only: while a song plays, decode the next/selected song in the background so a switch starts at once instead of waiting for decoding.
@@ -265,7 +287,7 @@ async function restore(){try{const restored=await loadLibrary();db=restored.db;l
 
 async function offlineSetup(){
  if(!('serviceWorker'in navigator)){report('オフライン保存が使えません。Safariで開いてください。',true);return;}
- const check=()=>{const worker=navigator.serviceWorker.controller;if(!worker)return;const channel=new MessageChannel();channel.port1.onmessage=e=>{swReady=e.data.ready&&e.data.version==='show-player-offline-v143';offlineBanner();channel.port1.close();};worker.postMessage('OFFLINE_STATUS',[channel.port2]);};
+ const check=()=>{const worker=navigator.serviceWorker.controller;if(!worker)return;const channel=new MessageChannel();channel.port1.onmessage=e=>{swReady=e.data.ready&&e.data.version==='show-player-offline-v144';offlineBanner();channel.port1.close();};worker.postMessage('OFFLINE_STATUS',[channel.port2]);};
  navigator.serviceWorker.addEventListener('controllerchange',check);check();
  try{await navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'});await navigator.serviceWorker.ready;check();}
  catch(e){if(navigator.serviceWorker.controller){check();log('オフライン','既存の保存画面を使用');}else{report('画面のオフライン保存に失敗しました。ネット接続時に開き直してください。',true);log('オフライン',e.message);}}

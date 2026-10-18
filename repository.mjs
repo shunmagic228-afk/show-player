@@ -1,5 +1,5 @@
-import {openStore,readStore,encodeAssets,writeRecords} from './storage.mjs?v=143';
-import {validateList,cleanEntry} from './transfer.mjs?v=143';
+import {openStore,readStore,encodeAssets,writeRecords} from './storage.mjs?v=144';
+import {validateList,cleanEntry} from './transfer.mjs?v=144';
 export async function writeLibrary(db,library,assets=[]){
  if(library.schemaVersion!==2||!Array.isArray(library.lists))throw Error('保存形式が不正です');
  const ids=new Set();for(const list of library.lists){validateList(list);if(ids.has(list.id))throw Error('セットリストIDが重複しています');ids.add(list.id);}

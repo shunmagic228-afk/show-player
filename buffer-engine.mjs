@@ -13,7 +13,7 @@ export class BufferedTrack {
   if(this.inflight.has(key))return this.inflight.get(key);
   const ctx=this.context();
   const job=(async()=>{const t0=Date.now();
-   if(this.store){try{const cj=this.convertJobs.get(key);if(cj){try{await cj;}catch{}}const rec=await this.store.get(key);const cached=bufferFromRecord(ctx,rec);if(cached){this.stored.add(key);this.log('buffer from cache',{ms:Date.now()-t0,key,duration:cached.duration});return cached;}}catch(e){this.log('buffer cache read failed',{message:e.message});}}
+   if(this.store){try{const cj=this.convertJobs.get(key);if(cj){try{await cj;}catch{}}const rec=await this.store.get(key);const cached=bufferFromRecord(ctx,rec);if(cached){this.stored.add(key);this.log('buffer from cache',{ms:Date.now()-t0,key,duration:cached.duration,fileRate:rec.sampleRate,ctxRate:ctx.sampleRate});return cached;}}catch(e){this.log('buffer cache read failed',{message:e.message});}}
    const blob=await this.asset(key);const tAsset=Date.now()-t0;if(!blob)throw Error('保存音源が見つかりません');const bytes=await blob.arrayBuffer();const tRead=Date.now()-t0-tAsset;const buffer=await ctx.decodeAudioData(bytes);this.log('buffer timing',{key,assetMs:tAsset,readMs:tRead,decodeMs:Date.now()-t0-tAsset-tRead,fileBytes:bytes.byteLength});
    if(this.store&&!this.storeOff){const store=this.store;this.storeChain=this.storeChain.then(()=>store.put(key,pcmRecord(buffer))).then(()=>{this.stored.add(key);this.log('buffer cache saved',{key});},e=>{this.storeOff=true;this.log('buffer cache save failed',{message:e.message});});}
    this.log('buffer decoded',{ms:Date.now()-t0,key,duration:buffer.duration,sampleRate:buffer.sampleRate,channels:buffer.numberOfChannels,decodedBytes:buffer.length*buffer.numberOfChannels*4});return buffer;})();
